@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[context.production.environment]
+  NEXT_PUBLIC_SUPABASE_URL = "https://wridxxzzulcfneofcazz.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyaWR4eHp6dWxjZm5lb2ZjYXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjQyNjgsImV4cCI6MjA5NTAwMDI2OH0.JWXORjfNuxQ7_LpY0Zo8HryYkKCEo4caBeiczHG8Vdg"
+  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyaWR4eHp6dWxjZm5lb2ZjYXp6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTQyNDI2OCwiZXhwIjoyMDk1MDAwMjY4fQ.Z_WvdFQCRJgkeMRo6iUyJ4Utm6iSmjI5bJ3dUq4Drac"
