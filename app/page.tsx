@@ -1,9 +1,9 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { supabase } from '@/lib/supabaseClient';
+import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
@@ -16,45 +16,50 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const itemsPerPage = 12;
 
-  // Fetch categories once
+  // Use refs to always have latest values inside fetchProducts
+  const searchRef = useRef(searchTerm);
+  const categoryRef = useRef(selectedCategory);
+  searchRef.current = searchTerm;
+  categoryRef.current = selectedCategory;
+
+  // Fetch categories once on mount
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data } = await supabase.from('categories').select('id, name_la').order('name_la');
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name_la')
+        .order('name_la');
       setCategories(data || []);
     };
     fetchCategories();
   }, []);
 
-  const fetchProducts = useCallback(async (reset = true) => {
-    if (reset) {
-      setPage(1);
-      setProducts([]);
-      setHasMore(true);
-    }
-    const currentPage = reset ? 1 : page;
+  const fetchProducts = useCallback(async (reset = true, pageOverride?: number) => {
+    const currentPage = pageOverride ?? (reset ? 1 : page);
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
     let query = supabase
       .from('products')
-      .select(`*, shops ( name_la, slug )`, { count: 'exact' })
+      .select('id, name_la, description_la, price, images, shops ( name_la, slug )', { count: 'exact' })
       .order('created_at', { ascending: false });
 
-    if (searchTerm.trim()) {
-      query = query.ilike('name_la', `%${searchTerm}%`);
+    if (searchRef.current.trim()) {
+      query = query.ilike('name_la', `%${searchRef.current.trim()}%`);
     }
-    if (selectedCategory !== 'all') {
-      query = query.eq('category_id', selectedCategory);
+    if (categoryRef.current !== 'all') {
+      query = query.eq('category_id', categoryRef.current);
     }
 
     const { data, error, count } = await query.range(from, to);
+
     if (!error && data) {
       if (reset) {
         setProducts(data);
       } else {
         setProducts(prev => [...prev, ...data]);
       }
-      setHasMore((count || 0) > (currentPage * itemsPerPage));
+      setHasMore((count || 0) > currentPage * itemsPerPage);
     } else {
       console.error(error);
       if (reset) setProducts([]);
@@ -62,21 +67,42 @@ export default function Home() {
     }
     setLoading(false);
     setLoadingMore(false);
-  }, [searchTerm, selectedCategory, page, itemsPerPage]);
+  }, [page, itemsPerPage]);
 
-  // Fetch when page changes (for "Load More")
+  // Initial load
+  useEffect(() => {
+    fetchProducts(true, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load more when page increments
   useEffect(() => {
     if (page > 1) {
-      fetchProducts(false);
+      fetchProducts(false, page);
     }
-  }, [page, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
-  // Reset and fetch when search or category changes
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     setLoading(true);
     setPage(1);
-    fetchProducts(true);
-  };
+    setProducts([]);
+    setHasMore(true);
+    fetchProducts(true, 1);
+  }, [fetchProducts]);
+
+  const clearFilters = useCallback(() => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setLoading(true);
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
+    // Reset refs immediately before fetch
+    searchRef.current = '';
+    categoryRef.current = 'all';
+    fetchProducts(true, 1);
+  }, [fetchProducts]);
 
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -84,13 +110,15 @@ export default function Home() {
     setPage(prev => prev + 1);
   };
 
-  // Initial load
-  useEffect(() => {
-    applyFilters();
-  }, []);
-
   if (loading && products.length === 0) {
-    return <div className="text-center p-8">ກຳລັງໂຫຼດ...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-gray-600">ກຳລັງໂຫຼດ...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -109,6 +137,7 @@ export default function Home() {
               placeholder="ຊື່ສິນຄ້າ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
               className="w-full border rounded px-3 py-2"
             />
           </div>
@@ -132,11 +161,7 @@ export default function Home() {
             ຄົ້ນຫາ
           </button>
           <button
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedCategory('all');
-              applyFilters();
-            }}
+            onClick={clearFilters}
             className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
           >
             ລ້າງ
@@ -149,17 +174,20 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition flex justify-between gap-3 p-3">
+              <div
+                key={product.id}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition flex justify-between gap-3 p-3"
+              >
                 {/* Left side: product details */}
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold mb-2">{product.name_la}</h2>
-                  <p className="text-gray-600 mb-2 line-clamp-2">{product.description_la}</p>
-                  <div className="flex justify-between items-center mb-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-semibold mb-2 truncate">{product.name_la}</h2>
+                  <p className="text-gray-600 mb-2 line-clamp-2 text-sm">{product.description_la}</p>
+                  <div className="mb-2">
                     <span className="text-lg font-bold text-green-600">
                       {product.price.toLocaleString()} ກີບ
                     </span>
                   </div>
-                  <div className="flex justify-between items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/product/${product.id}`}
                       className="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700 transition"
@@ -168,22 +196,26 @@ export default function Home() {
                     </Link>
                     <Link
                       href={product.shops?.slug ? `/shop/${product.shops.slug}` : '#'}
-                      className="text-sm text-blue-600 hover:underline"
+                      className="text-sm text-blue-600 hover:underline truncate"
                     >
                       {product.shops?.name_la || 'ຮ້ານທົ່ວໄປ'}
                     </Link>
                   </div>
                 </div>
-                {/* Right side: fixed square image */}
-                <div className="w-24 h-24 flex-shrink-0">
+
+                {/* Right side: optimized image */}
+                <div className="w-24 h-24 flex-shrink-0 relative rounded overflow-hidden bg-gray-100">
                   {product.images?.[0] ? (
-                    <img
+                    <Image
                       src={product.images[0]}
                       alt={product.name_la}
-                      className="w-full h-full object-cover rounded"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                      loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
                       ບໍ່ມີຮູບ
                     </div>
                   )}

@@ -11,20 +11,37 @@ export default function Navbar() {
   const [hasActiveShop, setHasActiveShop] = useState(false);
   const router = useRouter();
 
+  // Combined single query instead of two separate calls
+  const fetchUserData = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('role, shops ( is_active )')
+      .eq('id', userId)
+      .single();
+
+    setRole(data?.role || null);
+    const shops = (data as any)?.shops;
+    if (Array.isArray(shops)) {
+      setHasActiveShop(shops.some((s: any) => s.is_active === true));
+    } else if (shops) {
+      setHasActiveShop(shops.is_active === true);
+    } else {
+      setHasActiveShop(false);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserRole(session.user.id);
-        checkShopStatus(session.user.id);
+        fetchUserData(session.user.id);
       }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserRole(session.user.id);
-        checkShopStatus(session.user.id);
+        fetchUserData(session.user.id);
       } else {
         setRole(null);
         setHasActiveShop(false);
@@ -33,24 +50,6 @@ export default function Navbar() {
 
     return () => listener?.subscription.unsubscribe();
   }, []);
-
-  const fetchUserRole = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-    setRole(data?.role || null);
-  };
-
-  const checkShopStatus = async (userId: string) => {
-    const { data } = await supabase
-      .from('shops')
-      .select('is_active')
-      .eq('owner_id', userId)
-      .maybeSingle();
-    setHasActiveShop(data?.is_active === true);
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -64,7 +63,6 @@ export default function Navbar() {
           ຮ້ານຄ້າລາວ
         </Link>
         <div className="flex gap-4 items-center">
-          {/* Cart link for everyone */}
           <Link href="/cart" className="text-gray-600 hover:text-blue-600">
             🛒 ກະຕ່າ
           </Link>
@@ -74,24 +72,21 @@ export default function Navbar() {
                 {user.email}
                 {role && ` (${role})`}
               </span>
-              {/* Show "Sell Products" only for buyers (role = buyer) */}
               {role === 'buyer' && (
                 <Link href="/register-shop" className="text-green-600 hover:underline">
                   ຂາຍສິນຄ້າ
                 </Link>
               )}
-              {/* Show seller dashboard only if role is seller AND shop is active */}
               {role === 'seller' && hasActiveShop && (
                 <Link href="/seller/dashboard" className="text-blue-600 hover:underline">
                   ບໍລິຫານຮ້ານຂອງຂ້ອຍ
                 </Link>
               )}
-                            {role === 'admin' && (
+              {role === 'admin' && (
                 <Link href="/admin/dashboard" className="text-purple-600 hover:underline">
                   Admin
                 </Link>
               )}
-              {/* Buyer order history link */}
               <Link href="/orders" className="text-gray-600 hover:text-blue-600">
                 ປະຫວັດຄຳສັ່ງ
               </Link>

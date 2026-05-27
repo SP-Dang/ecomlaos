@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/hooks/useCart';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function ProductDetailPage() {
@@ -34,6 +35,9 @@ export default function ProductDetailPage() {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // Selected image index for gallery
+  const [selectedImage, setSelectedImage] = useState(0);
+
   // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
@@ -61,37 +65,30 @@ export default function ProductDetailPage() {
     getCurrentUser();
   }, []);
 
-  // Fetch reviews and check user eligibility (unchanged)
+  // Fetch reviews and check user eligibility
   useEffect(() => {
     const fetchReviewsAndEligibility = async () => {
       if (!id) return;
 
-      // Fetch approved reviews
       const { data, error } = await supabase
         .from('product_reviews')
-        .select(`
-          *,
-          profiles (full_name)
-        `)
+        .select(`*, profiles (full_name)`)
         .eq('product_id', id)
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
+
       if (!error && data) {
         setReviews(data);
         const avg = data.reduce((sum, r) => sum + r.rating, 0) / (data.length || 1);
         setAvgRating(avg || 0);
       }
 
-      // Check if current user can review
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: orderItem, error: itemError } = await supabase
         .from('order_items')
-        .select(`
-          order_id,
-          orders!inner (status, user_id)
-        `)
+        .select(`order_id, orders!inner (status, user_id)`)
         .eq('product_id', id)
         .eq('orders.user_id', user.id)
         .eq('orders.status', 'delivered')
@@ -124,15 +121,14 @@ export default function ProductDetailPage() {
   }, [searchParams, userCanReview, hasReviewed]);
 
   const handleAddToCart = async () => {
-  console.log('Product page handleAddToCart triggered'); // <-- ADD THIS LINE
-  setAddingToCart(true);
-  await addToCart(product.id, quantity);
-  setAddingToCart(false);
-  const goToCheckout = confirm(
-    `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
-  );
-  if (goToCheckout) router.push('/checkout');
-};
+    setAddingToCart(true);
+    await addToCart(product.id, quantity);
+    setAddingToCart(false);
+    const goToCheckout = confirm(
+      `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
+    );
+    if (goToCheckout) router.push('/checkout');
+  };
 
   const submitReview = async () => {
     if (!userCanReview || hasReviewed) {
@@ -146,10 +142,7 @@ export default function ProductDetailPage() {
     }
     const { data: orderItem, error: findError } = await supabase
       .from('order_items')
-      .select(`
-        order_id,
-        orders!inner (status, user_id)
-      `)
+      .select(`order_id, orders!inner (status, user_id)`)
       .eq('product_id', id)
       .eq('orders.user_id', user.id)
       .eq('orders.status', 'delivered')
@@ -157,7 +150,6 @@ export default function ProductDetailPage() {
       .maybeSingle();
 
     if (findError || !orderItem) {
-      console.error('Order item fetch error:', findError);
       alert('ບໍ່ພົບຄຳສັ່ງທີ່ສາມາດຂຽນຄຳຕິຊົມໄດ້ (ກະລຸນາໃຫ້ແນ່ໃຈວ່າຄຳສັ່ງຖືກຈັດສົ່ງແລ້ວ)');
       return;
     }
@@ -171,8 +163,9 @@ export default function ProductDetailPage() {
       comment: newComment.trim() || null,
       status: 'approved',
     });
-    if (error) alert(error.message);
-    else {
+    if (error) {
+      alert(error.message);
+    } else {
       alert('ຂອບໃຈສຳລັບຄຳຕິຊົມ');
       setShowReviewForm(false);
       setNewRating(5);
@@ -210,7 +203,6 @@ export default function ProductDetailPage() {
     else alert('ຂອບໃຈສຳລັບການລາຍງານ, ພວກເຮົາຈະກວດສອບ');
   };
 
-  // Report product handler
   const submitProductReport = async () => {
     if (!currentUser) {
       alert('ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນລາຍງານ');
@@ -239,19 +231,64 @@ export default function ProductDetailPage() {
     }
   };
 
-  if (loading) return <div className="text-center p-8">ກຳລັງໂຫຼດ...</div>;
-  if (!product) return <div className="text-center p-8">ບໍ່ພົບສິນຄ້າ</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-gray-600">ກຳລັງໂຫຼດ...</p>
+    </div>
+  );
+  if (!product) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-gray-600">ບໍ່ພົບສິນຄ້າ</p>
+    </div>
+  );
+
+  const images: string[] = product.images || [];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Product Image */}
+
+        {/* Product Images */}
         <div>
-          {product.images?.[0] ? (
-            <img src={product.images[0]} alt={product.name_la} className="w-full rounded-lg shadow" />
-          ) : (
-            <div className="bg-gray-200 w-full h-64 rounded-lg flex items-center justify-center">
-              ບໍ່ມີຮູບ
+          {/* Main image */}
+          <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 shadow mb-3">
+            {images[selectedImage] ? (
+              <Image
+                src={images[selectedImage]}
+                alt={product.name_la}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-contain"
+                priority
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                ບໍ່ມີຮູບ
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnail strip (if multiple images) */}
+          {images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedImage(idx)}
+                  className={`relative w-16 h-16 flex-shrink-0 rounded overflow-hidden border-2 transition ${
+                    selectedImage === idx ? 'border-blue-600' : 'border-transparent'
+                  }`}
+                >
+                  <Image
+                    src={img}
+                    alt={`${product.name_la} ${idx + 1}`}
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -273,6 +310,7 @@ export default function ProductDetailPage() {
             <span className="font-semibold">ສິນຄ້າຄົງເຫຼືອ:</span>{' '}
             {product.stock > 0 ? `${product.stock} ຊິ້ນ` : 'ໝົດ'}
           </div>
+
           {product.stock > 0 && (
             <>
               <div className="flex items-center gap-4 mb-4">
@@ -289,19 +327,19 @@ export default function ProductDetailPage() {
               <button
                 onClick={handleAddToCart}
                 disabled={addingToCart}
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-semibold text-lg transition"
               >
                 {addingToCart ? 'ກຳລັງເພີ່ມ...' : 'ເພີ່ມໃສ່ກະຕ່າ'}
               </button>
             </>
           )}
+
           {product.stock === 0 && (
-            <button disabled className="w-full bg-gray-400 text-white py-2 rounded">
+            <button disabled className="w-full bg-gray-400 text-white py-3 rounded-lg font-semibold text-lg">
               ສິນຄ້າໝົດ
             </button>
           )}
 
-          {/* Report Product button (only for logged‑in users) */}
           {currentUser && (
             <button
               onClick={() => setShowReportModal(true)}
@@ -313,7 +351,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Reviews Section (unchanged) */}
+      {/* Reviews Section */}
       <div className="mt-12 border-t pt-8">
         <h2 className="text-2xl font-bold mb-4">ຄຳຕິຊົມຈາກຜູ້ຊື້</h2>
         <div className="flex items-center gap-3 mb-6">
@@ -343,7 +381,7 @@ export default function ProductDetailPage() {
                 onChange={(e) => setNewRating(Number(e.target.value))}
                 className="border rounded px-3 py-1"
               >
-                {[1,2,3,4,5].map(r => (
+                {[1, 2, 3, 4, 5].map(r => (
                   <option key={r} value={r}>{r} ດາວ</option>
                 ))}
               </select>
@@ -416,7 +454,6 @@ export default function ProductDetailPage() {
                 onChange={(e) => setReportReason(e.target.value)}
                 className="w-full border rounded px-3 py-2"
                 placeholder="ຕົວຢ່າງ: ສິນຄ້າປອມ, ຂາຍສິນຄ້າຜິດກົດໝາຍ, ລາຄາບໍ່ສົມເຫດສົມຜົນ"
-                required
               />
             </div>
             <div className="mb-4">
