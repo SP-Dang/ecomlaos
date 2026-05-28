@@ -55,7 +55,6 @@ export default function Home() {
     fetchDiscountedProducts();
   }, [fetchDiscountedProducts]);
 
-  // ✅ FIX: Remove `page` from deps — use only refs for filter state
   const fetchProducts = useCallback(async (reset = true, pageOverride?: number) => {
     const currentPage = pageOverride ?? 1;
     const from = (currentPage - 1) * itemsPerPage;
@@ -84,28 +83,24 @@ export default function Home() {
         else setProducts(prev => [...prev, ...data]);
         setHasMore((count || 0) > currentPage * itemsPerPage);
       } else {
-        console.error('fetchProducts query error:', error);
+        console.error('fetchProducts error:', error);
         if (reset) setProducts([]);
         setHasMore(false);
       }
     } catch (err) {
-      // ✅ FIX: Always reach setLoading(false) even on exception
       console.error('fetchProducts exception:', err);
       if (reset) setProducts([]);
       setHasMore(false);
     } finally {
-      // ✅ FIX: Use finally so loading is ALWAYS cleared
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []); // ✅ FIX: empty deps — refs handle filter state, no stale closure
+  }, []);
 
-  // Initial load
   useEffect(() => {
     fetchProducts(true, 1);
   }, [fetchProducts]);
 
-  // Load more pages
   useEffect(() => {
     if (page > 1) {
       setLoadingMore(true);
@@ -157,7 +152,6 @@ export default function Home() {
           ສະບາຍດີ ຍິນດີຕ້ອນຮັບສູ່ຮ້ານຄ້າອອນລາຍ
         </h1>
 
-        {/* DISCOUNT SECTION */}
         {discountedProducts.length > 0 && (
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
@@ -198,7 +192,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* FILTERS */}
         <div className="bg-white p-4 rounded-lg shadow mb-8 flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium mb-1">ຄົ້ນຫາສິນຄ້າ</label>
@@ -218,7 +211,6 @@ export default function Home() {
           <button onClick={clearFilters} className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">ລ້າງ</button>
         </div>
 
-        {/* ALL PRODUCTS */}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">🛍️</span>
           <h2 className="text-2xl font-bold text-gray-800">ສິນຄ້າທັງໝົດ</h2>
@@ -273,8 +265,11 @@ export default function Home() {
 
         {hasMore && products.length > 0 && (
           <div className="text-center mt-8">
-            <button onClick={() => { setLoadingMore(true); setPage(p => p + 1); }} disabled={loadingMore}
-              className="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 disabled:opacity-50">
+            <button
+              onClick={() => { setLoadingMore(true); setPage(p => p + 1); }}
+              disabled={loadingMore}
+              className="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 disabled:opacity-50"
+            >
               {loadingMore ? 'ກຳລັງໂຫຼດ...' : 'ໂຫຼດເພີ່ມເຕີມ'}
             </button>
           </div>
