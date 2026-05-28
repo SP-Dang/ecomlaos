@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
