@@ -11,37 +11,38 @@ export default function Navbar() {
   const [hasActiveShop, setHasActiveShop] = useState(false);
   const router = useRouter();
 
-  // Combined single query instead of two separate calls
-  const fetchUserData = async (userId: string) => {
+  const fetchUserRole = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('role, shops ( is_active )')
+      .select('role')
       .eq('id', userId)
       .single();
-
     setRole(data?.role || null);
-    const shops = (data as any)?.shops;
-    if (Array.isArray(shops)) {
-      setHasActiveShop(shops.some((s: any) => s.is_active === true));
-    } else if (shops) {
-      setHasActiveShop(shops.is_active === true);
-    } else {
-      setHasActiveShop(false);
-    }
+  };
+
+  const checkShopStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from('shops')
+      .select('is_active')
+      .eq('owner_id', userId)
+      .maybeSingle();
+    setHasActiveShop(data?.is_active === true);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserData(session.user.id);
+        fetchUserRole(session.user.id);
+        checkShopStatus(session.user.id);
       }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserData(session.user.id);
+        fetchUserRole(session.user.id);
+        checkShopStatus(session.user.id);
       } else {
         setRole(null);
         setHasActiveShop(false);
