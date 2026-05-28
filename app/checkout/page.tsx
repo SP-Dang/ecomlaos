@@ -5,6 +5,13 @@ import { useCart } from '@/hooks/useCart';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
+// Helper: returns discounted price if discount is active, otherwise original price
+const getFinalPrice = (price: number, discountPercent: number, discountEndsAt: string | null): number => {
+  if (!discountPercent || discountPercent <= 0) return price;
+  if (!discountEndsAt || new Date(discountEndsAt) <= new Date()) return price;
+  return Math.round(price - (price * discountPercent / 100));
+};
+
 export default function CheckoutPage() {
   const { items, clearCart, loading: cartLoading } = useCart();
   const [shippingAddress, setShippingAddress] = useState('');
@@ -20,14 +27,21 @@ export default function CheckoutPage() {
   const [ticketNumber, setTicketNumber] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
 
-  // Prevent redirect when QR modal is active
   useEffect(() => {
     if (!cartLoading && items.length === 0 && !showQrModal && paymentMethod !== 'lao_qr') {
       router.push('/cart');
     }
   }, [cartLoading, items, router, showQrModal, paymentMethod]);
 
-  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  // Total using discounted prices
+  const total = items.reduce((sum, i) => {
+    const finalPrice = getFinalPrice(
+      i.product.price,
+      i.product.discount_percent,
+      i.product.discount_ends_at
+    );
+    return sum + finalPrice * i.quantity;
+  }, 0);
 
   const handlePlaceOrder = async () => {
     if (!shippingAddress) {
@@ -70,16 +84,24 @@ export default function CheckoutPage() {
       return;
     }
 
-    // 2. Insert order items
-    const orderItems = items.map(item => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      shop_id: item.product.shop_id,
-      quantity: item.quantity,
-      price_at_purchase: item.product.price,
-      seller_share: item.product.price * (1 - defaultCommission / 100),
-      commission_charged: item.product.price * (defaultCommission / 100),
-    }));
+    // 2. Insert order items using discounted price
+    const orderItems = items.map(item => {
+      const finalPrice = getFinalPrice(
+        item.product.price,
+        item.product.discount_percent,
+        item.product.discount_ends_at
+      );
+      return {
+        order_id: order.id,
+        product_id: item.product_id,
+        shop_id: item.product.shop_id,
+        quantity: item.quantity,
+        price_at_purchase: finalPrice,
+        seller_share: finalPrice * (1 - defaultCommission / 100),
+        commission_charged: finalPrice * (defaultCommission / 100),
+      };
+    });
+
     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
     if (itemsError) {
       setError(itemsError.message);
@@ -87,7 +109,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // 3. Deduct stock (Edge Function)
+    // 3. Deduct stock
     try {
       const functionUrl = 'https://wridxxzzulcfneofcazz.supabase.co/functions/v1/deduct-stock';
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -102,7 +124,6 @@ export default function CheckoutPage() {
 
     // 4. Handle payment method
     if (paymentMethod === 'lao_qr') {
-      // Set order ID and generate QR before clearing cart
       setCurrentOrderId(order.id);
       const qrRes = await fetch('/api/generate-qr', {
         method: 'POST',
@@ -114,18 +135,13 @@ export default function CheckoutPage() {
         const url = URL.createObjectURL(blob);
         setQrImageUrl(url);
         setShowQrModal(true);
-        console.log('QR modal should now be visible');
-        // Now clear the cart (after modal is set)
         await clearCart();
       } else {
-        const errText = await qrRes.text();
-        console.error('QR generation failed:', errText);
         setError('ບໍ່ສາມາດສ້າງ QR code, ກະລຸນາລອງໃໝ່');
         await clearCart();
         router.push(`/order/${order.id}`);
       }
     } else {
-      // COD or bank transfer – clear cart and redirect
       await clearCart();
       router.push(`/order/${order.id}`);
     }
@@ -167,7 +183,6 @@ export default function CheckoutPage() {
     setSubmittingTicket(false);
   };
 
-  // No early return – modal will be rendered even if cart is loading
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       {cartLoading && (
@@ -176,17 +191,41 @@ export default function CheckoutPage() {
         </div>
       )}
       <h1 className="text-2xl font-bold mb-6">ຊຳລະຄ່າສິນຄ້າ</h1>
+
+      {/* Order summary */}
       <div className="bg-gray-50 p-4 rounded mb-6">
         <h2 className="font-bold mb-2">ສິນຄ້າທີ່ສັ່ງ</h2>
-        {items.map(item => (
-          <div key={item.id} className="flex justify-between text-sm mb-1">
-            <span>{item.product.name_la} x{item.quantity}</span>
-            <span>{(item.product.price * item.quantity).toLocaleString()} ກີບ</span>
-          </div>
-        ))}
+        {items.map(item => {
+          const finalPrice = getFinalPrice(
+            item.product.price,
+            item.product.discount_percent,
+            item.product.discount_ends_at
+          );
+          const hasDiscount = finalPrice < item.product.price;
+          return (
+            <div key={item.id} className="flex justify-between text-sm mb-1">
+              <span>{item.product.name_la} x{item.quantity}</span>
+              <span className="text-right">
+                {hasDiscount && (
+                  <span className="text-gray-400 line-through mr-2">
+                    {(item.product.price * item.quantity).toLocaleString()} ກີບ
+                  </span>
+                )}
+                <span className={hasDiscount ? 'text-red-600 font-bold' : ''}>
+                  {(finalPrice * item.quantity).toLocaleString()} ກີບ
+                </span>
+                {hasDiscount && (
+                  <span className="ml-1 bg-red-100 text-red-600 text-xs px-1 rounded">
+                    -{item.product.discount_percent}%
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
         <div className="border-t pt-2 mt-2 font-bold flex justify-between">
           <span>ຍອດລວມ</span>
-          <span>{total.toLocaleString()} ກີບ</span>
+          <span className="text-green-600">{total.toLocaleString()} ກີບ</span>
         </div>
       </div>
 

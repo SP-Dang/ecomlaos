@@ -15,6 +15,8 @@ export interface CartItem {
     stock: number;
     images: string[];
     shop_id: string;
+    discount_percent: number;
+    discount_ends_at: string | null;
     shops: { name_la: string; slug: string };
   };
 }
@@ -83,6 +85,8 @@ export function useCart() {
           stock,
           images,
           shop_id,
+          discount_percent,
+          discount_ends_at,
           shops (name_la, slug)
         )
       `)
@@ -96,8 +100,7 @@ export function useCart() {
 
     const mappedItems: CartItem[] = (data || []).map((item: any) => {
       const productData = item.product;
-      // productData is an object, not an array
-      const shopData = productData.shops; // also an object
+      const shopData = productData.shops;
       return {
         id: item.id,
         product_id: item.product_id,
@@ -109,6 +112,8 @@ export function useCart() {
           stock: productData.stock,
           images: productData.images || [],
           shop_id: productData.shop_id,
+          discount_percent: productData.discount_percent || 0,
+          discount_ends_at: productData.discount_ends_at || null,
           shops: shopData,
         },
       };
@@ -128,14 +133,13 @@ export function useCart() {
         .update({ quantity: newQty })
         .eq('id', existing.id);
       if (error) throw error;
-      await fetchCart();
     } else {
       const { error } = await supabase
         .from('cart_items')
         .insert({ cart_id: cid, product_id: productId, quantity });
       if (error) throw error;
-      await fetchCart();
     }
+    await fetchCart();
   };
 
   const updateQuantity = async (itemId: string, quantity: number) => {

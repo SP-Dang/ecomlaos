@@ -13,6 +13,8 @@ export default function NewProduct() {
     price: '',
     stock: '',
     category_id: '',
+    discount_percent: '',
+    discount_ends_at: '',
   });
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -79,13 +81,24 @@ export default function NewProduct() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopId) return;
+
+    // Validate discount fields together
+    const discountPercent = parseInt(form.discount_percent) || 0;
+    if (discountPercent > 0 && !form.discount_ends_at) {
+      alert('ກະລຸນາເລືອກວັນໝົດອາຍຸສ່ວນຫຼຸດ');
+      return;
+    }
+    if (discountPercent < 0 || discountPercent > 90) {
+      alert('ສ່ວນຫຼຸດຕ້ອງຢູ່ລະຫວ່າງ 0 - 90%');
+      return;
+    }
+
     setLoading(true);
     setUploading(true);
     try {
       let imageUrls: string[] = [];
-      if (images.length > 0) {
-        imageUrls = await uploadImages();
-      }
+      if (images.length > 0) imageUrls = await uploadImages();
+
       const { error } = await supabase.from('products').insert({
         shop_id: shopId,
         name_la: form.name_la,
@@ -94,6 +107,8 @@ export default function NewProduct() {
         stock: parseInt(form.stock),
         category_id: form.category_id || null,
         images: imageUrls,
+        discount_percent: discountPercent,
+        discount_ends_at: discountPercent > 0 ? form.discount_ends_at : null,
       });
       if (error) alert(error.message);
       else router.push('/seller/products');
@@ -105,90 +120,112 @@ export default function NewProduct() {
     }
   };
 
+  const discountPercent = parseInt(form.discount_percent) || 0;
+  const previewPrice = form.price
+    ? Math.round(parseFloat(form.price) - (parseFloat(form.price) * discountPercent / 100))
+    : null;
+
+  // Minimum date for discount end = tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
+
   return (
     <div className="max-w-2xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">ເພີ່ມສິນຄ້າໃໝ່</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label>ຊື່ສິນຄ້າ (ພາສາລາວ)</label>
-          <input
-            required
-            value={form.name_la}
+          <input required value={form.name_la}
             onChange={(e) => setForm({ ...form, name_la: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
+            className="w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label>ລາຍລະອຽດ</label>
-          <textarea
-            value={form.description_la}
+          <textarea value={form.description_la}
             onChange={(e) => setForm({ ...form, description_la: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-            rows={3}
-          />
+            className="w-full border rounded px-3 py-2" rows={3} />
         </div>
         <div>
           <label>ລາຄາ (ກີບ)</label>
-          <input
-            type="number"
-            required
-            value={form.price}
+          <input type="number" required value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
+            className="w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label>ຈຳນວນເຫຼືອ (Stock)</label>
-          <input
-            type="number"
-            required
-            value={form.stock}
+          <input type="number" required value={form.stock}
             onChange={(e) => setForm({ ...form, stock: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
+            className="w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label>ປະເພດສິນຄ້າ</label>
-          <select
-            value={form.category_id}
+          <select value={form.category_id}
             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          >
+            className="w-full border rounded px-3 py-2">
             <option value="">-- ເລືອກປະເພດ --</option>
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name_la}</option>
             ))}
           </select>
         </div>
+
+        {/* DISCOUNT SECTION */}
+        <div className="border border-orange-200 bg-orange-50 rounded-lg p-4">
+          <h3 className="font-bold text-orange-700 mb-3">🔥 ຕັ້ງສ່ວນຫຼຸດ (ທາງເລືອກ)</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">ສ່ວນຫຼຸດ (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="90"
+                placeholder="0"
+                value={form.discount_percent}
+                onChange={(e) => setForm({ ...form, discount_percent: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">ໝົດອາຍຸວັນທີ</label>
+              <input
+                type="date"
+                min={minDate}
+                value={form.discount_ends_at}
+                onChange={(e) => setForm({ ...form, discount_ends_at: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+                disabled={discountPercent === 0}
+              />
+            </div>
+          </div>
+          {/* Live discount preview */}
+          {discountPercent > 0 && previewPrice !== null && form.price && (
+            <div className="mt-3 bg-white border border-orange-200 rounded p-3 text-sm">
+              <p className="text-gray-500">ລາຄາປົກກະຕິ: <span className="line-through">{parseFloat(form.price).toLocaleString()} ກີບ</span></p>
+              <p className="text-red-600 font-bold">ລາຄາຫຼັງຫຼຸດ: {previewPrice.toLocaleString()} ກີບ</p>
+              <p className="text-orange-600">ລູກຄ້າປະຫຍັດ: {(parseFloat(form.price) - previewPrice).toLocaleString()} ກີບ</p>
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-2">ຖ້າບໍ່ຕ້ອງການສ່ວນຫຼຸດ ໃຫ້ປ່ອຍຫວ່າງ ຫຼື ຕັ້ງເປັນ 0</p>
+        </div>
+
         <div>
           <label>ຮູບສິນຄ້າ (ສາມາດເລືອກໄດ້ຫຼາຍຮູບ, ສູງສຸດ 5 ຮູບ)</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageChange}
-            className="w-full border rounded px-3 py-2"
-          />
+          <input type="file" accept="image/*" multiple onChange={handleImageChange}
+            className="w-full border rounded px-3 py-2" />
           <div className="flex gap-2 mt-2 flex-wrap">
             {imagePreviews.map((url, idx) => (
               <div key={idx} className="relative">
                 <img src={url} alt={`preview ${idx}`} className="w-20 h-20 object-cover rounded" />
-                <button
-                  type="button"
-                  onClick={() => removeImage(idx)}
-                  className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 text-xs"
-                >
-                  ×
-                </button>
+                <button type="button" onClick={() => removeImage(idx)}
+                  className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 text-xs">×</button>
               </div>
             ))}
           </div>
         </div>
-        <button
-          type="submit"
-          disabled={loading || uploading}
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
-        >
+
+        <button type="submit" disabled={loading || uploading}
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400">
           {uploading ? 'ກຳລັງອັບໂຫຼດຮູບ...' : loading ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
         </button>
       </form>
