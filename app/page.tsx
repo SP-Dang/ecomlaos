@@ -59,6 +59,7 @@ export default function Home() {
     const currentPage = pageOverride ?? 1;
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
+    console.log('🔵 fetchProducts called', { reset, currentPage, from, to }); // ← ADD
 
     try {
       let query = supabase
@@ -77,6 +78,7 @@ export default function Home() {
       }
 
       const { data, error, count } = await query.range(from, to);
+      console.log('🟢 Supabase result:', { data, error, count }); // ← ADD
 
       if (!error && data) {
         if (reset) setProducts(data);
