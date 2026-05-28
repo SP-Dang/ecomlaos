@@ -22,20 +22,15 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
-  const isProtectedRoute = pathname.startsWith('/seller') ||
-                           pathname.startsWith('/admin') ||
-                           pathname.startsWith('/checkout')
+  const isProtectedRoute = pathname.startsWith('/seller') || pathname.startsWith('/admin')
 
-  // Guest trying to access protected route → redirect to login with redirectTo param
   if (!user && isProtectedRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Logged-in user on login/register page
   if (user && isAuthRoute) {
-    // If there's a redirectTo param, honour it instead of going to homepage
     const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/'
     return NextResponse.redirect(new URL(redirectTo, request.url))
   }
@@ -44,5 +39,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/login', '/register', '/seller/:path*', '/admin/:path*', '/checkout'],
+  matcher: ['/login', '/register', '/seller/:path*', '/admin/:path*'],
 }
