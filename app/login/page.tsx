@@ -1,43 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  // Optional: Check if there's a stored redirect when the page loads
-  useEffect(() => {
-    // You could show a message like "Please log in to continue checkout"
-    const redirectTo = localStorage.getItem('redirectAfterLogin');
-    if (redirectTo && redirectTo !== '/') {
-      console.log('You will be redirected to', redirectTo, 'after login');
-    }
-  }, []);
+  const searchParams = useSearchParams();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(error.message);
       setLoading(false);
     } else {
-      // Get the redirect URL stored before login (e.g., from checkout)
-      const redirectTo = localStorage.getItem('redirectAfterLogin') || '/';
-      localStorage.removeItem('redirectAfterLogin'); // clean up
+      // Read redirect from URL query param (set by proxy) or localStorage (set by checkout page)
+      const redirectTo = searchParams.get('redirectTo') ||
+                         localStorage.getItem('redirectAfterLogin') ||
+                         '/';
+      localStorage.removeItem('redirectAfterLogin');
       router.push(redirectTo);
     }
     setLoading(false);
@@ -85,5 +76,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">ກຳລັງໂຫຼດ...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
