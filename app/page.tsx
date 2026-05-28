@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
@@ -24,72 +23,113 @@ export default function Home() {
   categoryRef.current = selectedCategory;
 
   const fetchDiscountedProducts = useCallback(async () => {
-    const now = new Date().toISOString();
-    const { data } = await supabase
-      .from('products')
-      .select('id, name_la, price, images, discount_percent, discount_ends_at, shops ( name_la, slug )')
-      .gt('discount_percent', 0)
-      .gt('discount_ends_at', now)
-      .order('discount_percent', { ascending: false })
-      .limit(10);
-    setDiscountedProducts(data || []);
+    try {
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from('products')
+        .select('id, name_la, price, images, discount_percent, discount_ends_at, shops ( name_la, slug )')
+        .gt('discount_percent', 0)
+        .gt('discount_ends_at', now)
+        .order('discount_percent', { ascending: false })
+        .limit(10);
+      setDiscountedProducts(data || []);
+    } catch (err) {
+      console.error('fetchDiscountedProducts error:', err);
+      setDiscountedProducts([]);
+    }
   }, []);
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data } = await supabase
-        .from('categories')
-        .select('id, name_la')
-        .order('name_la');
-      setCategories(data || []);
+      try {
+        const { data } = await supabase
+          .from('categories')
+          .select('id, name_la')
+          .order('name_la');
+        setCategories(data || []);
+      } catch (err) {
+        console.error('fetchCategories error:', err);
+      }
     };
     fetchCategories();
     fetchDiscountedProducts();
   }, [fetchDiscountedProducts]);
 
+  // ✅ FIX: Remove `page` from deps — use only refs for filter state
   const fetchProducts = useCallback(async (reset = true, pageOverride?: number) => {
-    const currentPage = pageOverride ?? (reset ? 1 : page);
+    const currentPage = pageOverride ?? 1;
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    let query = supabase
-      .from('products')
-      .select('id, name_la, description_la, price, images, discount_percent, discount_ends_at, shops ( name_la, slug )', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('products')
+        .select(
+          'id, name_la, description_la, price, images, discount_percent, discount_ends_at, shops ( name_la, slug )',
+          { count: 'exact' }
+        )
+        .order('created_at', { ascending: false });
 
-    if (searchRef.current.trim()) {
-      query = query.ilike('name_la', `%${searchRef.current.trim()}%`);
-    }
-    if (categoryRef.current !== 'all') {
-      query = query.eq('category_id', categoryRef.current);
-    }
+      if (searchRef.current.trim()) {
+        query = query.ilike('name_la', `%${searchRef.current.trim()}%`);
+      }
+      if (categoryRef.current !== 'all') {
+        query = query.eq('category_id', categoryRef.current);
+      }
 
-    const { data, error, count } = await query.range(from, to);
+      const { data, error, count } = await query.range(from, to);
 
-    if (!error && data) {
-      if (reset) setProducts(data);
-      else setProducts(prev => [...prev, ...data]);
-      setHasMore((count || 0) > currentPage * itemsPerPage);
-    } else {
+      if (!error && data) {
+        if (reset) setProducts(data);
+        else setProducts(prev => [...prev, ...data]);
+        setHasMore((count || 0) > currentPage * itemsPerPage);
+      } else {
+        console.error('fetchProducts query error:', error);
+        if (reset) setProducts([]);
+        setHasMore(false);
+      }
+    } catch (err) {
+      // ✅ FIX: Always reach setLoading(false) even on exception
+      console.error('fetchProducts exception:', err);
       if (reset) setProducts([]);
       setHasMore(false);
+    } finally {
+      // ✅ FIX: Use finally so loading is ALWAYS cleared
+      setLoading(false);
+      setLoadingMore(false);
     }
-    setLoading(false);
-    setLoadingMore(false);
-  }, [page, itemsPerPage]);
+  }, []); // ✅ FIX: empty deps — refs handle filter state, no stale closure
 
-  useEffect(() => { fetchProducts(true, 1); }, []);
-  useEffect(() => { if (page > 1) fetchProducts(false, page); }, [page]);
+  // Initial load
+  useEffect(() => {
+    fetchProducts(true, 1);
+  }, [fetchProducts]);
+
+  // Load more pages
+  useEffect(() => {
+    if (page > 1) {
+      setLoadingMore(true);
+      fetchProducts(false, page);
+    }
+  }, [page, fetchProducts]);
 
   const applyFilters = useCallback(() => {
-    setLoading(true); setPage(1); setProducts([]); setHasMore(true);
+    setLoading(true);
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
     fetchProducts(true, 1);
   }, [fetchProducts]);
 
   const clearFilters = useCallback(() => {
-    setSearchTerm(''); setSelectedCategory('all');
-    searchRef.current = ''; categoryRef.current = 'all';
-    setLoading(true); setPage(1); setProducts([]); setHasMore(true);
+    setSearchTerm('');
+    setSelectedCategory('all');
+    searchRef.current = '';
+    categoryRef.current = 'all';
+    setLoading(true);
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
     fetchProducts(true, 1);
   }, [fetchProducts]);
 
