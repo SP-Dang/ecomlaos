@@ -121,14 +121,26 @@ export default function ProductDetailPage() {
   }, [searchParams, userCanReview, hasReviewed]);
 
   const handleAddToCart = async () => {
-    setAddingToCart(true);
-    await addToCart(product.id, quantity);
+  setAddingToCart(true);
+
+  // Check if user is logged in first
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     setAddingToCart(false);
-    const goToCheckout = confirm(
-      `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
-    );
-    if (goToCheckout) router.push('/checkout');
-  };
+    // Save current product page so user comes back here after login
+    localStorage.setItem('redirectAfterLogin', `/product/${product.id}`);
+    router.push('/login');
+    return;
+  }
+
+  await addToCart(product.id, quantity);
+  setAddingToCart(false);
+
+  const goToCheckout = confirm(
+    `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
+  );
+  if (goToCheckout) router.push('/checkout');
+};
 
   const submitReview = async () => {
     if (!userCanReview || hasReviewed) {
