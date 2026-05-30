@@ -51,101 +51,119 @@ export default function CheckoutPage() {
     setLoading(true);
     setError('');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      localStorage.setItem('redirectAfterLogin', '/checkout');
-      router.push('/login');
-      return;
-    }
-
-    // Get commission rate
-    const { data: commissionSetting } = await supabase
-      .from('commission_settings')
-      .select('default_rate')
-      .single();
-    const defaultCommission = commissionSetting?.default_rate || 10;
-
-    // 1. Create order
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        total_amount: total,
-        shipping_address: shippingAddress,
-        payment_method: paymentMethod,
-        status: 'pending',
-        payment_status: 'unpaid',
-      })
-      .select()
-      .single();
-    if (orderError) {
-      setError(orderError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 2. Insert order items using discounted price
-    const orderItems = items.map(item => {
-      const finalPrice = getFinalPrice(
-        item.product.price,
-        item.product.discount_percent,
-        item.product.discount_ends_at
-      );
-      return {
-        order_id: order.id,
-        product_id: item.product_id,
-        shop_id: item.product.shop_id,
-        quantity: item.quantity,
-        price_at_purchase: finalPrice,
-        seller_share: finalPrice * (1 - defaultCommission / 100),
-        commission_charged: finalPrice * (defaultCommission / 100),
-      };
-    });
-
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-    if (itemsError) {
-      setError(itemsError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 3. Deduct stock
     try {
-      const functionUrl = 'https://wridxxzzulcfneofcazz.supabase.co/functions/v1/deduct-stock';
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      await fetch(functionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${anonKey}` },
-        body: JSON.stringify({ orderItems: orderItems.map(oi => ({ product_id: oi.product_id, quantity: oi.quantity })) }),
-      });
-    } catch (err) {
-      console.error('Stock deduction failed:', err);
-    }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        localStorage.setItem('redirectAfterLogin', '/checkout');
+        router.push('/login');
+        return;
+      }
 
-    // 4. Handle payment method
-    if (paymentMethod === 'lao_qr') {
-      setCurrentOrderId(order.id);
-      const qrRes = await fetch('/api/generate-qr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, amount: total }),
+      // Get commission rate
+      const { data: commissionSetting } = await supabase
+        .from('commission_settings')
+        .select('default_rate')
+        .single();
+      const defaultCommission = commissionSetting?.default_rate || 10;
+
+      // 1. Create order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          total_amount: total,
+          shipping_address: shippingAddress,
+          payment_method: paymentMethod,
+          status: 'pending',
+          payment_status: 'unpaid',
+        })
+        .select()
+        .single();
+      if (orderError) {
+        setError(orderError.message);
+        return;
+      }
+
+      // 2. Insert order items using discounted price
+      const orderItems = items.map(item => {
+        const finalPrice = getFinalPrice(
+          item.product.price,
+          item.product.discount_percent,
+          item.product.discount_ends_at
+        );
+        return {
+          order_id: order.id,
+          product_id: item.product_id,
+          shop_id: item.product.shop_id,
+          quantity: item.quantity,
+          price_at_purchase: finalPrice,
+          seller_share: finalPrice * (1 - defaultCommission / 100),
+          commission_charged: finalPrice * (defaultCommission / 100),
+        };
       });
-      if (qrRes.ok) {
-        const blob = await qrRes.blob();
-        const url = URL.createObjectURL(blob);
-        setQrImageUrl(url);
-        setShowQrModal(true);
-        await clearCart();
+
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+      if (itemsError) {
+        setError(itemsError.message);
+        return;
+      }
+
+      // 3. Deduct stock
+      try {
+        const functionUrl = 'https://wridxxzzulcfneofcazz.supabase.co/functions/v1/deduct-stock';
+        await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            orderItems: orderItems.map(oi => ({
+              product_id: oi.product_id,
+              quantity: oi.quantity,
+            })),
+          }),
+        });
+      } catch (err) {
+        console.error('Stock deduction failed:', err);
+      }
+
+      // 4. Handle payment method
+      if (paymentMethod === 'lao_qr') {
+        setCurrentOrderId(order.id);
+        try {
+          const qrRes = await fetch('/api/generate-qr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order.id, amount: total }),
+          });
+          if (qrRes.ok) {
+            const blob = await qrRes.blob();
+            const url = URL.createObjectURL(blob);
+            setQrImageUrl(url);
+            setShowQrModal(true);
+            await clearCart();
+          } else {
+            setError('ບໍ່ສາມາດສ້າງ QR code, ກະລຸນາລອງໃໝ່');
+            await clearCart();
+            router.push(`/order/${order.id}`);
+          }
+        } catch (qrErr) {
+          console.error('QR generation error:', qrErr);
+          setError('ເກີດຂໍ້ຜິດພາດໃນການສ້າງ QR, ກະລຸນາລອງໃໝ່');
+          await clearCart();
+          router.push(`/order/${order.id}`);
+        }
       } else {
-        setError('ບໍ່ສາມາດສ້າງ QR code, ກະລຸນາລອງໃໝ່');
         await clearCart();
         router.push(`/order/${order.id}`);
       }
-    } else {
-      await clearCart();
-      router.push(`/order/${order.id}`);
+    } catch (err: any) {
+      console.error('handlePlaceOrder error:', err);
+      setError('ເກີດຂໍ້ຜິດພາດ: ' + (err.message || 'ກະລຸນາລອງໃໝ່'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const submitTicket = async () => {
@@ -155,32 +173,37 @@ export default function CheckoutPage() {
     }
     if (!currentOrderId) return;
     setSubmittingTicket(true);
-    const { data: pv, error: findError } = await supabase
-      .from('payment_verifications')
-      .select('id')
-      .eq('order_id', currentOrderId)
-      .single();
-    if (findError || !pv) {
-      alert('ບໍ່ພົບຂໍ້ມູນການຊຳລະ, ກະລຸນາຕິດຕໍ່ຜູ້ດູແລ');
+    try {
+      const { data: pv, error: findError } = await supabase
+        .from('payment_verifications')
+        .select('id')
+        .eq('order_id', currentOrderId)
+        .single();
+      if (findError || !pv) {
+        alert('ບໍ່ພົບຂໍ້ມູນການຊຳລະ, ກະລຸນາຕິດຕໍ່ຜູ້ດູແລ');
+        return;
+      }
+      const { error } = await supabase
+        .from('payment_verifications')
+        .update({
+          ticket_number: ticketNumber,
+          status: 'ticket_submitted',
+          submitted_at: new Date().toISOString(),
+        })
+        .eq('id', pv.id);
+      if (error) {
+        alert(error.message);
+      } else {
+        alert('ຂອບໃຈສຳລັບການຊຳລະ. ຜູ້ດູແລລະບົບຈະກວດສອບເລກອ້າງອິງຂອງທ່ານ ແລະ ຢືນຢັນການສັ່ງຊື້.');
+        setShowQrModal(false);
+        setTicketNumber('');
+        router.push(`/order/${currentOrderId}`);
+      }
+    } catch (err: any) {
+      alert('ເກີດຂໍ້ຜິດພາດ: ' + (err.message || 'ກະລຸນາລອງໃໝ່'));
+    } finally {
       setSubmittingTicket(false);
-      return;
     }
-    const { error } = await supabase
-      .from('payment_verifications')
-      .update({
-        ticket_number: ticketNumber,
-        status: 'ticket_submitted',
-        submitted_at: new Date().toISOString(),
-      })
-      .eq('id', pv.id);
-    if (error) alert(error.message);
-    else {
-      alert('ຂອບໃຈສຳລັບການຊຳລະ. ຜູ້ດູແລລະບົບຈະກວດສອບເລກອ້າງອິງຂອງທ່ານ ແລະ ຢືນຢັນການສັ່ງຊື້.');
-      setShowQrModal(false);
-      setTicketNumber('');
-      router.push(`/order/${currentOrderId}`);
-    }
-    setSubmittingTicket(false);
   };
 
   return (
@@ -257,7 +280,7 @@ export default function CheckoutPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
         >
           {loading ? 'ກຳລັງດຳເນີນການ...' : 'ຢືນຢັນການສັ່ງຊື້'}
         </button>
@@ -277,7 +300,9 @@ export default function CheckoutPage() {
               ກະລຸນາປ້ອນເລກອ້າງອິງ 6 ໂຕເລກສຸດທ້າຍ ເພື່ອຢືນຢັນການຊຳລະ.
             </p>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">ເບີໂທ - ເລກອ້າງອິງ (6 ໂຕເລກສຸດທ້າຍ)</label>
+              <label className="block text-sm font-medium mb-1">
+                ເບີໂທ - ເລກອ້າງອິງ (6 ໂຕເລກສຸດທ້າຍ)
+              </label>
               <input
                 type="text"
                 value={ticketNumber}
@@ -296,7 +321,7 @@ export default function CheckoutPage() {
               <button
                 onClick={submitTicket}
                 disabled={submittingTicket}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
               >
                 {submittingTicket ? 'ກຳລັງສົ່ງ...' : 'ຢືນຢັນ Ticket'}
               </button>
