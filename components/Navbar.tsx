@@ -70,7 +70,9 @@ export default function Navbar() {
           {user ? (
             <>
               <span className="text-sm text-gray-600">
-                {user.email}
+                {user.email?.startsWith('phone_856')
+                  ? `0${user.email.slice(9).replace('@ecomlao.com', '')}`
+                  : user.email}
                 {role && ` (${role})`}
               </span>
               {role === 'buyer' && (

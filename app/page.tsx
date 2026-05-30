@@ -150,10 +150,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          ສະບາຍດີ ຍິນດີຕ້ອນຮັບສູ່ຮ້ານຄ້າອອນລາຍ
-        </h1>
-
+       
         {discountedProducts.length > 0 && (
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
