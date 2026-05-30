@@ -41,7 +41,6 @@ export default function AdminCustomers() {
       }
     }
     setShopNameMap(shopMap);
-
     setAllCustomers(profiles);
     setFilteredCustomers(profiles);
     setTotalPages(Math.ceil(profiles.length / itemsPerPage));
@@ -53,7 +52,7 @@ export default function AdminCustomers() {
       setFilteredCustomers(allCustomers);
     } else {
       const term = searchTerm.toLowerCase();
-      const filtered = allCustomers.filter(c => 
+      const filtered = allCustomers.filter(c =>
         c.id.toLowerCase().includes(term) ||
         (c.full_name && c.full_name.toLowerCase().includes(term)) ||
         (c.phone && c.phone.toLowerCase().includes(term)) ||
@@ -71,8 +70,8 @@ export default function AdminCustomers() {
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) router.push('/login');
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id).single();
+      if (!user) { router.push('/login'); return; }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (profile?.role !== 'admin') router.push('/');
       else fetchCustomers();
     };
@@ -86,11 +85,17 @@ export default function AdminCustomers() {
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('lo-LA');
 
+  // Format phone for display — remove +856 prefix if present
+  const formatPhone = (phone: string | null) => {
+    if (!phone) return '-';
+    return phone.startsWith('+856') ? `0${phone.slice(4)}` : phone;
+  };
+
   const exportToExcel = () => {
     const exportData = filteredCustomers.map(c => ({
       'ລະຫັດ': c.id,
       'ຊື່': c.full_name || '-',
-      'ເບີໂທ': c.phone || '-',
+      'ເບີໂທ': formatPhone(c.phone),
       'ທີ່ຢູ່': c.address || '-',
       'ສະຖານະບົດບາດ': c.role,
       'ຊື່ຮ້ານ (ສຳລັບຜູ້ຂາຍ)': c.role === 'seller' ? (shopNameMap.get(c.id) || '-') : '-',
@@ -99,7 +104,7 @@ export default function AdminCustomers() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-    XLSX.writeFile(wb, `customers_${new Date().toISOString().slice(0,19)}.xlsx`);
+    XLSX.writeFile(wb, `customers_${new Date().toISOString().slice(0, 19)}.xlsx`);
   };
 
   return (
@@ -130,51 +135,57 @@ export default function AdminCustomers() {
         <div className="text-center py-8 text-gray-500">ບໍ່ພົບຜູ້ໃຊ້</div>
       ) : (
         <div className="overflow-x-auto">
-  <table className="min-w-full bg-white border">
-    <thead>
-      <tr className="bg-gray-100">
-        <th className="px-4 py-2 border">ລະຫັດ</th>
-        <th className="px-4 py-2 border">ຊື່</th>
-        <th className="px-4 py-2 border">ເບີໂທ</th>
-        <th className="px-4 py-2 border">ທີ່ຢູ່</th>
-        <th className="px-4 py-2 border">ສະຖານະບົດບາດ</th>
-        <th className="px-4 py-2 border">ຊື່ຮ້ານ (ສຳລັບຜູ້ຂາຍ)</th>
-        <th className="px-4 py-2 border">ວັນທີສະໝັກ</th>
-      </tr>
-    </thead>
-    <tbody>
-      {paginatedCustomers.map((c) => (
-        <tr key={c.id}>
-          <td className="px-4 py-2 border text-sm font-mono">{c.id.slice(0, 8)}...</td>
-          <td className="px-4 py-2 border">{c.full_name || '-'}</td>
-          <td className="px-4 py-2 border">{c.phone || '-'}</td>
-          <td className="px-4 py-2 border">{c.address || '-'}</td>
-          <td className="px-4 py-2 border">{c.role}</td>
-          <td className="px-4 py-2 border">
-            {c.role === 'seller' ? (shopNameMap.get(c.id) || '-') : '-'}
-          </td>
-          <td className="px-4 py-2 border">{formatDate(c.created_at)}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
+          <table className="min-w-full bg-white border">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="px-4 py-2 border">ລະຫັດ</th>
+                <th className="px-4 py-2 border">ຊື່</th>
+                <th className="px-4 py-2 border">ເບີໂທ</th>
+                <th className="px-4 py-2 border">ທີ່ຢູ່</th>
+                <th className="px-4 py-2 border">ສະຖານະບົດບາດ</th>
+                <th className="px-4 py-2 border">ຊື່ຮ້ານ (ສຳລັບຜູ້ຂາຍ)</th>
+                <th className="px-4 py-2 border">ວັນທີສະໝັກ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedCustomers.map((c) => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 border text-sm font-mono">{c.id.slice(0, 8)}...</td>
+                  <td className="px-4 py-2 border">{c.full_name || '-'}</td>
+                  <td className="px-4 py-2 border">{formatPhone(c.phone)}</td>
+                  <td className="px-4 py-2 border">{c.address || '-'}</td>
+                  <td className="px-4 py-2 border">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      c.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                      c.role === 'seller' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {c.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {c.role === 'seller' ? (shopNameMap.get(c.id) || '-') : '-'}
+                  </td>
+                  <td className="px-4 py-2 border">{formatDate(c.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-6">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
           >
             ກ່ອນໜ້າ
           </button>
-          <span className="px-3 py-1">
-            ໜ້າ {currentPage} / {totalPages}
-          </span>
+          <span className="px-3 py-1">ໜ້າ {currentPage} / {totalPages}</span>
           <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
           >

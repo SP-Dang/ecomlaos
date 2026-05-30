@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 function LoginForm() {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,20 +18,29 @@ function LoginForm() {
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      // Convert phone to dummy email for Supabase Auth
+      const dummyEmail = `phone_856${phone}@ecomlao.com`;
 
-    if (error) {
-      setError(error.message);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: dummyEmail,
+        password,
+      });
+
+      if (error) {
+        setError('ເບີໂທ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
+      } else {
+        const redirectTo = searchParams.get('redirectTo') ||
+                           localStorage.getItem('redirectAfterLogin') ||
+                           '/';
+        localStorage.removeItem('redirectAfterLogin');
+        router.push(redirectTo);
+      }
+    } catch (err: any) {
+      setError('ເກີດຂໍ້ຜິດພາດ, ກະລຸນາລອງໃໝ່');
+    } finally {
       setLoading(false);
-    } else {
-      // Read redirect from URL query param (set by proxy) or localStorage (set by checkout page)
-      const redirectTo = searchParams.get('redirectTo') ||
-                         localStorage.getItem('redirectAfterLogin') ||
-                         '/';
-      localStorage.removeItem('redirectAfterLogin');
-      router.push(redirectTo);
     }
-    setLoading(false);
   };
 
   return (
@@ -41,14 +50,20 @@ function LoginForm() {
         {error && <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium">ອີເມວ</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border rounded-md"
-            />
+            <label className="block text-sm font-medium">ເບີໂທລະສັບ</label>
+            <div className="flex mt-1">
+              <span className="bg-gray-100 px-3 py-2 border border-r-0 rounded-l-md text-gray-600">
+                +856
+              </span>
+              <input
+                type="tel"
+                required
+                placeholder="20XXXXXXX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                className="flex-1 px-3 py-2 border rounded-r-md"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium">ລະຫັດຜ່ານ</label>
@@ -63,7 +78,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
             {loading ? 'ກຳລັງເຂົ້າສູ່ລະບົບ...' : 'ເຂົ້າສູ່ລະບົບ'}
           </button>
