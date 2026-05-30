@@ -8,6 +8,19 @@ import { useCart } from '@/hooks/useCart';
 import Image from 'next/image';
 import Link from 'next/link';
 
+// Helper: returns discounted price if discount is active, otherwise original price
+const getFinalPrice = (price: number, discountPercent: number, discountEndsAt: string | null): number => {
+  if (!discountPercent || discountPercent <= 0) return price;
+  if (!discountEndsAt || new Date(discountEndsAt) <= new Date()) return price;
+  return Math.round(price - (price * discountPercent / 100));
+};
+
+const isDiscountActive = (discountPercent: number, discountEndsAt: string | null): boolean => {
+  if (!discountPercent || discountPercent <= 0) return false;
+  if (!discountEndsAt) return false;
+  return new Date(discountEndsAt) > new Date();
+};
+
 export default function ProductDetailPage() {
   const { id } = useParams();
   const searchParams = useSearchParams();
@@ -121,26 +134,21 @@ export default function ProductDetailPage() {
   }, [searchParams, userCanReview, hasReviewed]);
 
   const handleAddToCart = async () => {
-  setAddingToCart(true);
-
-  // Check if user is logged in first
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+    setAddingToCart(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setAddingToCart(false);
+      localStorage.setItem('redirectAfterLogin', `/product/${product.id}`);
+      router.push('/login');
+      return;
+    }
+    await addToCart(product.id, quantity);
     setAddingToCart(false);
-    // Save current product page so user comes back here after login
-    localStorage.setItem('redirectAfterLogin', `/product/${product.id}`);
-    router.push('/login');
-    return;
-  }
-
-  await addToCart(product.id, quantity);
-  setAddingToCart(false);
-
-  const goToCheckout = confirm(
-    `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
-  );
-  if (goToCheckout) router.push('/checkout');
-};
+    const goToCheckout = confirm(
+      `ເພີ່ມ ${product.name_la} ຈຳນວນ ${quantity} ໃສ່ກະຕ່າແລ້ວ.\nທ່ານຕ້ອງການໄປທີ່ໜ້າຊຳລະເງິນ ຫຼື ບໍ?`
+    );
+    if (goToCheckout) router.push('/checkout');
+  };
 
   const submitReview = async () => {
     if (!userCanReview || hasReviewed) {
@@ -148,10 +156,8 @@ export default function ProductDetailPage() {
       return;
     }
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('ກະລຸນາເຂົ້າສູ່ລະບົບ');
-      return;
-    }
+    if (!user) { alert('ກະລຸນາເຂົ້າສູ່ລະບົບ'); return; }
+
     const { data: orderItem, error: findError } = await supabase
       .from('order_items')
       .select(`order_id, orders!inner (status, user_id)`)
@@ -162,7 +168,7 @@ export default function ProductDetailPage() {
       .maybeSingle();
 
     if (findError || !orderItem) {
-      alert('ບໍ່ພົບຄຳສັ່ງທີ່ສາມາດຂຽນຄຳຕິຊົມໄດ້ (ກະລຸນາໃຫ້ແນ່ໃຈວ່າຄຳສັ່ງຖືກຈັດສົ່ງແລ້ວ)');
+      alert('ບໍ່ພົບຄຳສັ່ງທີ່ສາມາດຂຽນຄຳຕິຊົມໄດ້');
       return;
     }
 
@@ -200,11 +206,8 @@ export default function ProductDetailPage() {
 
   const reportReview = async (reviewId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອລາຍງານ');
-      return;
-    }
-    const reason = prompt('ເຫດຜົນທີ່ລາຍງານ (ຂາຍສິນຄ້າບໍ່ຖືກຕ້ອງ, ສິນຄ້າບໍ່ກົງ, ພາສາບໍ່ສຸພາບ)');
+    if (!user) { alert('ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອລາຍງານ'); return; }
+    const reason = prompt('ເຫດຜົນທີ່ລາຍງານ');
     if (!reason) return;
     const { error } = await supabase.from('review_reports').insert({
       review_id: reviewId,
@@ -216,14 +219,8 @@ export default function ProductDetailPage() {
   };
 
   const submitProductReport = async () => {
-    if (!currentUser) {
-      alert('ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນລາຍງານ');
-      return;
-    }
-    if (!reportReason.trim()) {
-      alert('ກະລຸນາປ້ອນເຫດຜົນການລາຍງານ');
-      return;
-    }
+    if (!currentUser) { alert('ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນລາຍງານ'); return; }
+    if (!reportReason.trim()) { alert('ກະລຸນາປ້ອນເຫດຜົນການລາຍງານ'); return; }
     setSubmittingReport(true);
     const { error } = await supabase.from('product_reports').insert({
       product_id: id,
@@ -255,13 +252,15 @@ export default function ProductDetailPage() {
   );
 
   const images: string[] = product.images || [];
+  const hasDiscount = isDiscountActive(product.discount_percent, product.discount_ends_at);
+  const finalPrice = getFinalPrice(product.price, product.discount_percent, product.discount_ends_at);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-        {/* Product Images */}
-        <div>
+        {/* Product Images — max-w-md (448px) */}
+        <div className="max-w-md w-full mx-auto">
           {/* Main image */}
           <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 shadow mb-3">
             {images[selectedImage] ? (
@@ -269,7 +268,7 @@ export default function ProductDetailPage() {
                 src={images[selectedImage]}
                 alt={product.name_la}
                 fill
-                sizes="(max-width: 768px) 100vw, 50vw"
+                sizes="(max-width: 768px) 100vw, 448px"
                 className="object-contain"
                 priority
               />
@@ -278,9 +277,15 @@ export default function ProductDetailPage() {
                 ບໍ່ມີຮູບ
               </div>
             )}
+            {/* Discount badge on image */}
+            {hasDiscount && (
+              <div className="absolute top-3 left-3 bg-red-600 text-white text-sm font-bold px-2 py-1 rounded-full">
+                -{product.discount_percent}%
+              </div>
+            )}
           </div>
 
-          {/* Thumbnail strip (if multiple images) */}
+          {/* Thumbnail strip */}
           {images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {images.map((img, idx) => (
@@ -309,9 +314,38 @@ export default function ProductDetailPage() {
         <div>
           <h1 className="text-3xl font-bold mb-2">{product.name_la}</h1>
           <p className="text-gray-600 mb-4">{product.description_la}</p>
-          <div className="text-2xl font-bold text-green-600 mb-4">
-            {product.price.toLocaleString()} ກີບ
+
+          {/* Price — shows discount if active */}
+          <div className="mb-4">
+            {hasDiscount ? (
+              <div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-2xl font-bold text-red-600">
+                    {finalPrice.toLocaleString()} ກີບ
+                  </span>
+                  <span className="bg-red-600 text-white text-sm font-bold px-2 py-0.5 rounded-full">
+                    -{product.discount_percent}%
+                  </span>
+                </div>
+                <div className="text-gray-400 line-through text-lg mt-1">
+                  {product.price.toLocaleString()} ກີບ
+                </div>
+                <div className="text-green-600 text-sm mt-1">
+                  ປະຫຍັດ {(product.price - finalPrice).toLocaleString()} ກີບ
+                </div>
+                {product.discount_ends_at && (
+                  <div className="text-orange-500 text-sm mt-1">
+                    ⏰ ໝົດອາຍຸ: {new Date(product.discount_ends_at).toLocaleDateString('lo-LA')}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold text-green-600">
+                {product.price.toLocaleString()} ກີບ
+              </div>
+            )}
           </div>
+
           <div className="mb-4">
             <span className="font-semibold">ຮ້ານ:</span>{' '}
             <Link href={`/shop/${product.shops?.slug}`} className="text-blue-600 hover:underline">
@@ -375,10 +409,7 @@ export default function ProductDetailPage() {
         </div>
 
         {userCanReview && !hasReviewed && !showReviewForm && (
-          <button
-            onClick={() => setShowReviewForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded mb-6"
-          >
+          <button onClick={() => setShowReviewForm(true)} className="bg-blue-600 text-white px-4 py-2 rounded mb-6">
             ຂຽນຄຳຕິຊົມ
           </button>
         )}
@@ -388,39 +419,19 @@ export default function ProductDetailPage() {
             <h3 className="font-semibold mb-2">ຂຽນຄຳຕິຊົມຂອງທ່ານ</h3>
             <div className="mb-3">
               <label className="block text-sm font-medium">ຄະແນນ</label>
-              <select
-                value={String(newRating)}
-                onChange={(e) => setNewRating(Number(e.target.value))}
-                className="border rounded px-3 py-1"
-              >
-                {[1, 2, 3, 4, 5].map(r => (
-                  <option key={r} value={r}>{r} ດາວ</option>
-                ))}
+              <select value={String(newRating)} onChange={(e) => setNewRating(Number(e.target.value))} className="border rounded px-3 py-1">
+                {[1, 2, 3, 4, 5].map(r => <option key={r} value={r}>{r} ດາວ</option>)}
               </select>
             </div>
             <div className="mb-3">
               <label className="block text-sm font-medium">ຄຳເຫັນ</label>
-              <textarea
-                rows={3}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                placeholder="ຂຽນປະສົບການຂອງທ່ານ..."
-              />
+              <textarea rows={3} value={newComment} onChange={(e) => setNewComment(e.target.value)}
+                className="w-full border rounded px-3 py-2" placeholder="ຂຽນປະສົບການຂອງທ່ານ..." />
             </div>
-            <button
-              onClick={submitReview}
-              disabled={submitting}
-              className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
-            >
+            <button onClick={submitReview} disabled={submitting} className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-gray-400">
               {submitting ? 'ກຳລັງສົ່ງ...' : 'ສົ່ງຄຳຕິຊົມ'}
             </button>
-            <button
-              onClick={() => setShowReviewForm(false)}
-              className="ml-2 text-gray-500 hover:underline"
-            >
-              ຍົກເລີກ
-            </button>
+            <button onClick={() => setShowReviewForm(false)} className="ml-2 text-gray-500 hover:underline">ຍົກເລີກ</button>
           </div>
         )}
 
@@ -434,22 +445,15 @@ export default function ProductDetailPage() {
                     {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
                   </div>
                 </div>
-                <div className="text-xs text-gray-400">
-                  {new Date(review.created_at).toLocaleDateString()}
-                </div>
+                <div className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString()}</div>
               </div>
               <p className="mt-2 text-gray-700">{review.comment}</p>
-              <button
-                onClick={() => reportReview(review.id)}
-                className="text-xs text-red-500 mt-2 hover:underline"
-              >
+              <button onClick={() => reportReview(review.id)} className="text-xs text-red-500 mt-2 hover:underline">
                 ລາຍງານຄຳຕິຊົມ
               </button>
             </div>
           ))}
-          {reviews.length === 0 && (
-            <div className="text-center text-gray-500 py-4">ຍັງບໍ່ມີຄຳຕິຊົມ</div>
-          )}
+          {reviews.length === 0 && <div className="text-center text-gray-500 py-4">ຍັງບໍ່ມີຄຳຕິຊົມ</div>}
         </div>
       </div>
 
@@ -460,36 +464,19 @@ export default function ProductDetailPage() {
             <h2 className="text-xl font-bold mb-4">ລາຍງານສິນຄ້າ {product.name_la}</h2>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">ເຫດຜົນ *</label>
-              <textarea
-                rows={3}
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
+              <textarea rows={3} value={reportReason} onChange={(e) => setReportReason(e.target.value)}
                 className="w-full border rounded px-3 py-2"
-                placeholder="ຕົວຢ່າງ: ສິນຄ້າປອມ, ຂາຍສິນຄ້າຜິດກົດໝາຍ, ລາຄາບໍ່ສົມເຫດສົມຜົນ"
-              />
+                placeholder="ຕົວຢ່າງ: ສິນຄ້າປອມ, ຂາຍສິນຄ້າຜິດກົດໝາຍ, ລາຄາບໍ່ສົມເຫດສົມຜົນ" />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">ລາຍລະອຽດ (ຖ້າມີ)</label>
-              <textarea
-                rows={2}
-                value={reportDescription}
-                onChange={(e) => setReportDescription(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                placeholder="ຂໍ້ມູນເພີ່ມເຕີມ..."
-              />
+              <textarea rows={2} value={reportDescription} onChange={(e) => setReportDescription(e.target.value)}
+                className="w-full border rounded px-3 py-2" placeholder="ຂໍ້ມູນເພີ່ມເຕີມ..." />
             </div>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                ຍົກເລີກ
-              </button>
-              <button
-                onClick={submitProductReport}
-                disabled={submittingReport}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400"
-              >
+              <button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">ຍົກເລີກ</button>
+              <button onClick={submitProductReport} disabled={submittingReport}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400">
                 {submittingReport ? 'ກຳລັງສົ່ງ...' : 'ສົ່ງລາຍງານ'}
               </button>
             </div>
