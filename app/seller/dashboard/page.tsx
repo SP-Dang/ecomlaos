@@ -11,6 +11,8 @@ export default function SellerDashboard() {
     products: 0,
     orders: 0,
     earnings: 0,
+    outOfStock: 0,
+    lowStock: 0,
   });
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -18,39 +20,46 @@ export default function SellerDashboard() {
   useEffect(() => {
     const fetchShopAndStats = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+      if (!user) { router.push('/login'); return; }
 
-      // Get shop
       const { data, error } = await supabase
         .from('shops')
         .select('*')
         .eq('owner_id', user.id)
         .maybeSingle();
 
-      if (error || !data) {
-        router.push('/register-shop');
-        return;
-      }
+      if (error || !data) { router.push('/register-shop'); return; }
       setShop(data);
 
-      // Count products
+      // Count total products
       const { count: productsCount } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
         .eq('shop_id', data.id);
 
-      // Count unique orders for this shop
+      // Count out of stock products
+      const { count: outOfStockCount } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', data.id)
+        .eq('stock', 0);
+
+      // Count low stock products (1-5 units)
+      const { count: lowStockCount } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', data.id)
+        .gt('stock', 0)
+        .lte('stock', 5);
+
+      // Count unique orders
       const { data: orderItems } = await supabase
         .from('order_items')
         .select('order_id')
         .eq('shop_id', data.id);
       const uniqueOrders = new Set(orderItems?.map(oi => oi.order_id) || []);
-      const ordersCount = uniqueOrders.size;
 
-      // Calculate total earnings (from seller_earnings with status 'paid' or all? Let's use seller_share from order_items where order is paid/completed? Simpler: sum seller_share from order_items for this shop)
+      // Total earnings
       const { data: earningsData } = await supabase
         .from('order_items')
         .select('seller_share')
@@ -59,8 +68,10 @@ export default function SellerDashboard() {
 
       setStats({
         products: productsCount || 0,
-        orders: ordersCount,
+        orders: uniqueOrders.size,
         earnings: totalEarnings,
+        outOfStock: outOfStockCount || 0,
+        lowStock: lowStockCount || 0,
       });
       setLoading(false);
     };
@@ -73,8 +84,31 @@ export default function SellerDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">{shop.name_la}</h1>
-      <p className="text-gray-600 mb-6">ສະຖານະ: {shop.is_active ? 'ເປີດການໃຊ້ງານ' : 'ລໍຖ້າອະນຸມັດ'}</p>
+      <p className="text-gray-600 mb-6">
+        ສະຖານະ: {shop.is_active ? '🟢 ເປີດການໃຊ້ງານ' : '🟡 ລໍຖ້າອະນຸມັດ'}
+      </p>
 
+      {/* Stock alerts */}
+      {(stats.outOfStock > 0 || stats.lowStock > 0) && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-semibold text-yellow-800 mb-2">⚠️ ແຈ້ງເຕືອນສ່ວນ</h3>
+          <div className="flex flex-wrap gap-4">
+            {stats.outOfStock > 0 && (
+              <Link href="/seller/products" className="flex items-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition">
+                🔴 <span className="font-bold">{stats.outOfStock}</span> ສິນຄ້າໝົດສ່ວນ
+              </Link>
+            )}
+            {stats.lowStock > 0 && (
+              <Link href="/seller/products" className="flex items-center gap-2 bg-orange-100 text-orange-700 px-3 py-2 rounded hover:bg-orange-200 transition">
+                🟠 <span className="font-bold">{stats.lowStock}</span> ສິນຄ້າໃກ້ໝົດ (≤5 ຊິ້ນ)
+              </Link>
+            )}
+          </div>
+          <p className="text-xs text-yellow-700 mt-2">ກົດທີ່ຄຳເຕືອນ ເພື່ອໄປຈັດການສ່ວນ</p>
+        </div>
+      )}
+
+      {/* Main stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Link href="/seller/products" className="bg-blue-100 p-6 rounded-lg text-center hover:bg-blue-200 transition">
           <h2 className="text-2xl font-bold text-blue-800">{stats.products}</h2>

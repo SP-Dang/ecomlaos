@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useCart } from '@/hooks/useCart';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +11,10 @@ export default function Navbar() {
   const [role, setRole] = useState<string | null>(null);
   const [hasActiveShop, setHasActiveShop] = useState(false);
   const router = useRouter();
+  const { items } = useCart();
+
+  // Total quantity across all cart items
+  const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   const fetchUserRole = async (userId: string) => {
     const { data } = await supabase
@@ -57,6 +62,11 @@ export default function Navbar() {
     router.push('/');
   };
 
+  // Format display name — convert dummy email to phone number
+  const displayName = user?.email?.startsWith('phone_856')
+    ? `0${user.email.slice(9).replace('@ecomlao.com', '')}`
+    : user?.email;
+
   return (
     <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
@@ -64,15 +74,21 @@ export default function Navbar() {
           ຮ້ານຄ້າລາວ
         </Link>
         <div className="flex gap-4 items-center">
-          <Link href="/cart" className="text-gray-600 hover:text-blue-600">
+
+          {/* Cart icon with badge */}
+          <Link href="/cart" className="relative text-gray-600 hover:text-blue-600">
             🛒 ກະຕ່າ
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
           </Link>
+
           {user ? (
             <>
               <span className="text-sm text-gray-600">
-                {user.email?.startsWith('phone_856')
-                  ? `0${user.email.slice(9).replace('@ecomlao.com', '')}`
-                  : user.email}
+                {displayName}
                 {role && ` (${role})`}
               </span>
               {role === 'buyer' && (
