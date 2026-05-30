@@ -43,7 +43,7 @@ export default function RegisterPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        alert(`ລະຫັດຢັ້ງຢືນ: ${result.code} (ພຽງແຕ່ທົດສອບ)`);
+        alert(`ລະຫັດຢັ້ງຢືນ: ${result.code} (6 ໂຕເລກ)`);
         setCodeSent(true);
         setError('');
       }
@@ -156,9 +156,9 @@ export default function RegisterPage() {
               <input
                 type="tel"
                 required
-                placeholder="20XXXXXXX"
+                placeholder="20XXXXXXXX"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 className="flex-1 px-3 py-2 border rounded-r-md"
                 disabled={isVerified}
               />
