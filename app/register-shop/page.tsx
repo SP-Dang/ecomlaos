@@ -80,7 +80,7 @@ export default function RegisterShopPage() {
         .update({ role: 'seller' })
         .eq('id', userId);
 
-      alert('ສ້າງຮ້ານສຳເລັດ! ເອກະສານຂອງທ່ານກຳລັງຖືກກວດສອບ. ກະລຸນາລໍຖ້າການອະນຸມັດຈາກຜູ້ດູແລລະບົບ.');
+      alert('ສ້າງຮ້ານສຳເລັດ! ເອກະສານຂອງທ່ານກຳລັງຖືກກວດສອບ. ກະລຸນາລໍຖ້າການອະນຸມັດຈາກ Admin.');
       router.push('/seller/dashboard');
     }
     setLoading(false);
@@ -110,7 +110,7 @@ export default function RegisterShopPage() {
           />
         </div>
         <div>
-          <label className="block font-medium">Slug (URL ຂອງຮ້ານ, ພາສາອັງກິດເທົ່ານັ້ນ)</label>
+          <label className="block font-medium">ຊື່ຮ້ານ (ພາສາອັງກິດເທົ່ານັ້ນ)</label>
           <input
             type="text"
             required
@@ -119,7 +119,7 @@ export default function RegisterShopPage() {
             className="w-full border rounded px-3 py-2"
             placeholder="my-shop"
           />
-          <p className="text-sm text-gray-500">ຕົວຢ່າງ: my-shop → ຈະເປັນ /shop/my-shop</p>
+          <p className="text-sm text-gray-500">ຕົວຢ່າງ: TT-Mobile → ຈະເປັນ /shop/TT-mobile</p>
         </div>
         <div>
           <label className="block font-medium">ເອກະສານຢັ້ງຢືນ (ບັດປະຈຳຕົວ / ທະບຽນຮ້ານ)</label>
@@ -129,7 +129,7 @@ export default function RegisterShopPage() {
             onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
             className="w-full border rounded px-3 py-2"
           />
-          <p className="text-sm text-gray-500">ອັບໂຫຼດຮູບຖ່າຍ ຫຼື PDF (ສູງສຸດ 5MB)</p>
+          <p className="text-sm text-gray-500">ອັບໂຫຼດຮູບຖ່າຍ ຫຼື PDF (ສູງສຸດບໍ່ເກິນ 3MB)</p>
         </div>
         {error && <div className="text-red-500">{error}</div>}
         <button
