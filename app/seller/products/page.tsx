@@ -21,7 +21,7 @@ export default function SellerProducts() {
 
   // Stock status helper
   const getStockStatus = (stock: number) => {
-    if (stock === 0) return { label: 'ໝົດສ່ວນ', color: 'bg-red-100 text-red-700' };
+    if (stock === 0) return { label: 'ໝົດ', color: 'bg-red-100 text-red-700' };
     if (stock <= 5) return { label: `ໃກ້ໝົດ (${stock} ຊິ້ນ)`, color: 'bg-orange-100 text-orange-700' };
     return { label: `ມີສ່ວນ (${stock} ຊິ້ນ)`, color: 'bg-green-100 text-green-700' };
   };
@@ -143,7 +143,11 @@ export default function SellerProducts() {
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const headers = ['ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)', 'ຊື່ສິນຄ້າ', 'ປະເພດ', 'ລາຄາ (ກີບ)', 'ສ່ວນຫຼຸດ (%)', 'ລາຄາຫຼັງຫຼຸດ (ກີບ)', 'ສ່ວນ (ປັດຈຸບັນ)', 'ຂາຍໄດ້ (ທັງໝົດ)', 'ສະຖານະສ່ວນ'];
+    const ws = XLSX.utils.json_to_sheet(
+      exportData.length > 0 ? exportData : [Object.fromEntries(headers.map(h => [h, '']))],
+      { header: headers }
+    );
 
     // Set column widths
     ws['!cols'] = [
@@ -179,7 +183,14 @@ export default function SellerProducts() {
       'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)': p.stock,
     }));
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
+    const ws = XLSX.utils.json_to_sheet(
+      templateData.length > 0 ? templateData : [{
+        'ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)': '',
+        'ຊື່ສິນຄ້າ (ອ້າງອີງ)': '',
+        'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)': ''
+      }],
+      { header: ['ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)', 'ຊື່ສິນຄ້າ (ອ້າງອີງ)', 'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)'] }
+    );
     ws['!cols'] = [{ wch: 38 }, { wch: 30 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');
@@ -273,14 +284,14 @@ export default function SellerProducts() {
 
       {/* Stock management toolbar */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="font-semibold text-blue-800 mb-3">📦 ຈັດການສ່ວນ</h3>
+        <h3 className="font-semibold text-blue-800 mb-3">📦 ຈັດການ</h3>
         <div className="flex flex-wrap gap-3">
           {/* Export stock summary */}
           <button
             onClick={handleExportStock}
             className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700"
           >
-            📊 ສົ່ງອອກ Excel ສ່ວນ
+            📊 ສົ່ງອອກ Excel
           </button>
 
           {/* Download import template */}
@@ -288,12 +299,12 @@ export default function SellerProducts() {
             onClick={handleDownloadTemplate}
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
           >
-            📥 ດາວໂຫຼດແມ່ແບບ Excel
+            📥 ດາວໂຫຼດ Template
           </button>
 
           {/* Import stock */}
           <label className={`px-4 py-2 rounded text-sm text-white cursor-pointer ${importing ? 'bg-gray-400' : 'bg-orange-600 hover:bg-orange-700'}`}>
-            {importing ? 'ກຳລັງນຳເຂົ້າ...' : '📤 ນຳເຂົ້າ Excel ສ່ວນ'}
+            {importing ? 'ກຳລັງນຳເຂົ້າ...' : '📤 ນຳເຂົ້າ Excel'}
             <input
               ref={fileInputRef}
               type="file"
@@ -306,7 +317,7 @@ export default function SellerProducts() {
         </div>
 
         <p className="text-xs text-blue-600 mt-2">
-          ຂັ້ນຕອນ: 1) ດາວໂຫຼດແມ່ແບບ → 2) ໃສ່ຕົວເລກສ່ວນໃໝ່ → 3) ນຳເຂົ້າໄຟລ໌
+          ຂັ້ນຕອນ: 1) ດາວໂຫຼດ Template → 2) ໃສ່ຕົວເລກສ່ວນໃໝ່ → 3) ນຳເຂົ້າໄຟລ໌
         </p>
       </div>
 
