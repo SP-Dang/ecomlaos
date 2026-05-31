@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 
 export default function SellerProducts() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [shopId, setShopId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,14 +20,20 @@ export default function SellerProducts() {
   const itemsPerPage = 21;
   const router = useRouter();
 
-  // Stock status helper
   const getStockStatus = (stock: number) => {
     if (stock === 0) return { label: 'ໝົດ', color: 'bg-red-100 text-red-700' };
     if (stock <= 5) return { label: `ໃກ້ໝົດ (${stock} ຊິ້ນ)`, color: 'bg-orange-100 text-orange-700' };
-    return { label: `ມີສ່ວນ (${stock} ຊິ້ນ)`, color: 'bg-green-100 text-green-700' };
+    return { label: `ມີ (${stock} ຊິ້ນ)`, color: 'bg-green-100 text-green-700' };
   };
 
-  // Fetch products
+  const fetchCategories = async () => {
+    const { data } = await supabase
+      .from('categories')
+      .select('id, name_la')
+      .order('name_la');
+    setCategories(data || []);
+  };
+
   const fetchProducts = async (page = 1) => {
     if (!shopId) return;
     setLoading(true);
@@ -35,7 +42,7 @@ export default function SellerProducts() {
 
     let query = supabase
       .from('products')
-      .select('*', { count: 'exact' })
+      .select('*, categories(name_la)', { count: 'exact' })
       .eq('shop_id', shopId)
       .order('created_at', { ascending: false });
 
@@ -47,8 +54,6 @@ export default function SellerProducts() {
     if (!error && data) {
       setProducts(data);
       setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-    } else {
-      console.error(error);
     }
     setLoading(false);
   };
@@ -70,6 +75,7 @@ export default function SellerProducts() {
       setShopId(shop.id);
     };
     fetchShop();
+    fetchCategories();
   }, [router]);
 
   const handleDelete = async (productId: string) => {
@@ -89,116 +95,139 @@ export default function SellerProducts() {
   const handleExportStock = async () => {
     if (!shopId) return;
 
-    // Fetch ALL products for this shop (not just current page)
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, name_la, price, stock, discount_percent, discount_ends_at, category_id, categories(name_la)')
+      .select('id, name_la, price, stock, discount_percent, discount_ends_at, categories(name_la)')
       .eq('shop_id', shopId)
       .order('created_at', { ascending: false });
 
     if (error || !allProducts) { alert('ບໍ່ສາມາດດຶງຂໍ້ມູນໄດ້'); return; }
 
-    // Fetch total sold quantity per product
     const productIds = allProducts.map(p => p.id);
     const { data: soldData } = await supabase
       .from('order_items')
       .select('product_id, quantity')
       .in('product_id', productIds);
 
-    // Sum sold quantities per product
     const soldMap = new Map<string, number>();
     soldData?.forEach(item => {
       soldMap.set(item.product_id, (soldMap.get(item.product_id) || 0) + item.quantity);
     });
 
-    const isDiscountActive = (percent: number, endsAt: string | null) => {
-      if (!percent || percent <= 0) return false;
-      if (!endsAt) return false;
-      return new Date(endsAt) > new Date();
-    };
-
     const getStockStatusText = (stock: number) => {
-      if (stock === 0) return 'ໝົດສ່ວນ';
+      if (stock === 0) return 'ໝົດ';
       if (stock <= 5) return 'ໃກ້ໝົດ';
       return 'ປົກກະຕິ';
     };
 
-    // Build export rows
+    const isDiscountActive = (percent: number, endsAt: string | null) =>
+      percent > 0 && !!endsAt && new Date(endsAt) > new Date();
+
     const exportData = allProducts.map(p => {
       const active = isDiscountActive(p.discount_percent, p.discount_ends_at);
-      const discountedPrice = active
-        ? Math.round(p.price - (p.price * p.discount_percent / 100))
-        : null;
-
       return {
-        'ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)': p.id,
+        'ລະຫັດສິນຄ້າ': p.id,
         'ຊື່ສິນຄ້າ': p.name_la,
         'ປະເພດ': (p.categories as any)?.name_la || '-',
         'ລາຄາ (ກີບ)': p.price,
         'ສ່ວນຫຼຸດ (%)': p.discount_percent || 0,
-        'ລາຄາຫຼັງຫຼຸດ (ກີບ)': discountedPrice || p.price,
-        'ສ່ວນ (ປັດຈຸບັນ)': p.stock,
+        'ລາຄາຫຼັງຫຼຸດ (ກີບ)': active
+          ? Math.round(p.price - (p.price * p.discount_percent / 100))
+          : p.price,
+        'ຈຳນວນ (ປັດຈຸບັນ)': p.stock,
         'ຂາຍໄດ້ (ທັງໝົດ)': soldMap.get(p.id) || 0,
-        'ສະຖານະສ່ວນ': getStockStatusText(p.stock),
+        'ສະຖານະຈຳນວນ': getStockStatusText(p.stock),
       };
     });
 
-    const headers = ['ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)', 'ຊື່ສິນຄ້າ', 'ປະເພດ', 'ລາຄາ (ກີບ)', 'ສ່ວນຫຼຸດ (%)', 'ລາຄາຫຼັງຫຼຸດ (ກີບ)', 'ສ່ວນ (ປັດຈຸບັນ)', 'ຂາຍໄດ້ (ທັງໝົດ)', 'ສະຖານະສ່ວນ'];
+    const headers = ['ລະຫັດສິນຄ້າ', 'ຊື່ສິນຄ້າ', 'ປະເພດ', 'ລາຄາ (ກີບ)', 'ສ່ວນຫຼຸດ (%)', 'ລາຄາຫຼັງຫຼຸດ (ກີບ)', 'ຈຳນວນ (ປັດຈຸບັນ)', 'ຂາຍໄດ້ (ທັງໝົດ)', 'ສະຖານະຈຳນວນ'];
     const ws = XLSX.utils.json_to_sheet(
       exportData.length > 0 ? exportData : [Object.fromEntries(headers.map(h => [h, '']))],
       { header: headers }
     );
-
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 38 }, // ລະຫັດ
-      { wch: 30 }, // ຊື່
-      { wch: 15 }, // ປະເພດ
-      { wch: 15 }, // ລາຄາ
-      { wch: 12 }, // ສ່ວນຫຼຸດ
-      { wch: 18 }, // ລາຄາຫຼັງຫຼຸດ
-      { wch: 15 }, // ສ່ວນ
-      { wch: 15 }, // ຂາຍໄດ້
-      { wch: 15 }, // ສະຖານະ
-    ];
-
+    ws['!cols'] = [{ wch: 38 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock');
     XLSX.writeFile(wb, `stock_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // ── DOWNLOAD IMPORT TEMPLATE ───────────────────────────────────────
-  const handleDownloadTemplate = async () => {
-    if (!shopId) return;
-
-    const { data: allProducts } = await supabase
-      .from('products')
-      .select('id, name_la, stock')
-      .eq('shop_id', shopId)
-      .order('created_at', { ascending: false });
-
-    const templateData = (allProducts || []).map(p => ({
-      'ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)': p.id,
-      'ຊື່ສິນຄ້າ (ອ້າງອີງ)': p.name_la,
-      'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)': p.stock,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(
-      templateData.length > 0 ? templateData : [{
-        'ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)': '',
-        'ຊື່ສິນຄ້າ (ອ້າງອີງ)': '',
-        'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)': ''
-      }],
-      { header: ['ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)', 'ຊື່ສິນຄ້າ (ອ້າງອີງ)', 'ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)'] }
-    );
-    ws['!cols'] = [{ wch: 38 }, { wch: 30 }, { wch: 20 }];
+  // ── DOWNLOAD TEMPLATE WITH CATEGORY DROPDOWN ───────────────────────
+  const handleDownloadTemplate = () => {
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    XLSX.writeFile(wb, `stock_template_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    // ── Sheet 1: Main data entry sheet ──
+    const headers = [
+      'ຊື່ສິນຄ້າ (ພາສາລາວ) *',
+      'ລາຍລະອຽດ',
+      'ລາຄາ (ກີບ) *',
+      'ຈຳນວນເຫຼືອ (Stock) *',
+      'ປະເພດສິນຄ້າ',
+      'ສ່ວນຫຼຸດ (%) 0-90',
+      'ວັນໝົດອາຍຸສ່ວນຫຼຸດ (DD/MM/YYYY)',
+    ];
+
+    // Example row + 19 empty rows
+    const templateRows = [
+      {
+        'ຊື່ສິນຄ້າ (ພາສາລາວ) *': 'ຕົວຢ່າງ: ສາຍສາກ Type C',
+        'ລາຍລະອຽດ': 'ລາຍລະອຽດສິນຄ້າ (ຖ້າມີ)',
+        'ລາຄາ (ກີບ) *': 50000,
+        'ຈຳນວນເຫຼືອ (Stock) *': 10,
+        'ປະເພດສິນຄ້າ': categories[0]?.name_la || '',
+        'ສ່ວນຫຼຸດ (%) 0-90': 0,
+        'ວັນໝົດອາຍຸສ່ວນຫຼຸດ (DD/MM/YYYY)': '',
+      },
+      ...Array(19).fill(null).map(() => ({
+        'ຊື່ສິນຄ້າ (ພາສາລາວ) *': '',
+        'ລາຍລະອຽດ': '',
+        'ລາຄາ (ກີບ) *': '',
+        'ຈຳນວນເຫຼືອ (Stock) *': '',
+        'ປະເພດສິນຄ້າ': '',
+        'ສ່ວນຫຼຸດ (%) 0-90': '',
+        'ວັນໝົດອາຍຸສ່ວນຫຼຸດ (DD/MM/YYYY)': '',
+      })),
+    ];
+
+    const ws1 = XLSX.utils.json_to_sheet(templateRows, { header: headers });
+    ws1['!cols'] = [
+      { wch: 30 }, { wch: 30 }, { wch: 15 },
+      { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 30 },
+    ];
+
+    // ── Add dropdown validation for category column (column E = index 4) ──
+    // Build the category list as a quoted comma-separated string for Excel validation
+    const categoryNames = categories.map(c => c.name_la);
+    if (categoryNames.length > 0) {
+      // Excel data validation: restrict column E (rows 2-21) to category list
+      const validationFormula = `"${categoryNames.join(',')}"`; 
+      ws1['!dataValidations'] = [
+        {
+          sqref: 'E2:E21', // Column E, rows 2-21
+          type: 'list',
+          formula1: validationFormula,
+          showDropDown: false, // false = show dropdown arrow
+          showErrorMessage: true,
+          errorTitle: 'ປະເພດບໍ່ຖືກຕ້ອງ',
+          error: `ກະລຸນາເລືອກປະເພດຈາກລາຍການ:\n${categoryNames.join('\n')}`,
+          errorStyle: 'stop',
+        },
+      ];
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'ເພີ່ມສິນຄ້າ');
+
+    // ── Sheet 2: Category reference sheet ──
+    const categorySheet = XLSX.utils.json_to_sheet(
+      categories.map(c => ({ 'ປະເພດສິນຄ້າທີ່ມີ': c.name_la }))
+    );
+    categorySheet['!cols'] = [{ wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, categorySheet, 'ປະເພດ (ອ້າງອີງ)');
+
+    XLSX.writeFile(wb, `add_products_template_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // ── BULK IMPORT STOCK ──────────────────────────────────────────────
-  const handleImportStock = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── BULK IMPORT NEW PRODUCTS ───────────────────────────────────────
+  const handleImportProducts = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !shopId) return;
 
@@ -217,42 +246,86 @@ export default function SellerProducts() {
         return;
       }
 
-      // Fetch all product IDs belonging to this shop for validation
-      const { data: shopProducts } = await supabase
-        .from('products')
-        .select('id')
-        .eq('shop_id', shopId);
-      const validIds = new Set(shopProducts?.map(p => p.id) || []);
+      // Build category name → id map
+      const categoryMap = new Map(categories.map(c => [c.name_la.trim(), c.id]));
 
       let successCount = 0;
       const skipped: string[] = [];
+      const toInsert: any[] = [];
 
-      for (const row of rows) {
-        const productId = row['ລະຫັດສິນຄ້າ (ຢ່າແກ້ໄຂ)']?.toString().trim();
-        const newStock = parseInt(row['ສ່ວນໃໝ່ (ໃສ່ຕົວເລກ)']);
-        const productName = row['ຊື່ສິນຄ້າ (ອ້າງອີງ)'] || productId;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
 
-        // Validate
-        if (!productId) { skipped.push(`ແຖວໃດໜຶ່ງ: ບໍ່ມີລະຫັດ`); continue; }
-        if (!validIds.has(productId)) { skipped.push(`${productName}: ບໍ່ພົບໃນຮ້ານຂອງທ່ານ`); continue; }
-        if (isNaN(newStock) || newStock < 0) { skipped.push(`${productName}: ສ່ວນບໍ່ຖືກຕ້ອງ`); continue; }
+        const nameLa = row['ຊື່ສິນຄ້າ (ພາສາລາວ) *']?.toString().trim();
+        const price = parseFloat(row['ລາຄາ (ກີບ) *']);
+        const stock = parseInt(row['ຈຳນວນເຫຼືອ (Stock) *']);
+        const descriptionLa = row['ລາຍລະອຽດ']?.toString().trim() || null;
+        const categoryName = row['ປະເພດສິນຄ້າ']?.toString().trim() || '';
+        const discountPercent = parseInt(row['ສ່ວນຫຼຸດ (%) 0-90']) || 0;
+        const discountEndsAtRaw = row['ວັນໝົດອາຍຸສ່ວນຫຼຸດ (DD/MM/YYYY)']?.toString().trim() || '';
 
-        // Update stock
-        const { error } = await supabase
+        // Skip completely empty rows
+        if (!nameLa && !row['ລາຄາ (ກີບ) *']) continue;
+
+        // Validate required fields
+        if (!nameLa) { skipped.push(`ແຖວ ${rowNum}: ບໍ່ມີຊື່ສິນຄ້າ`); continue; }
+        if (isNaN(price) || price <= 0) { skipped.push(`ແຖວ ${rowNum} (${nameLa}): ລາຄາບໍ່ຖືກຕ້ອງ`); continue; }
+        if (isNaN(stock) || stock < 0) { skipped.push(`ແຖວ ${rowNum} (${nameLa}): ຈຳນວນເຫຼືອບໍ່ຖືກຕ້ອງ`); continue; }
+        if (discountPercent < 0 || discountPercent > 90) { skipped.push(`ແຖວ ${rowNum} (${nameLa}): ສ່ວນຫຼຸດຕ້ອງຢູ່ 0-90%`); continue; }
+        if (discountPercent > 0 && !discountEndsAtRaw) { skipped.push(`ແຖວ ${rowNum} (${nameLa}): ຕ້ອງມີວັນໝົດອາຍຸສ່ວນຫຼຸດ`); continue; }
+
+        // Validate category — must be from the list or empty
+        const categoryId = categoryName ? (categoryMap.get(categoryName) || null) : null;
+        if (categoryName && !categoryId) {
+          skipped.push(`ແຖວ ${rowNum} (${nameLa}): ປະເພດ "${categoryName}" ບໍ່ຖືກຕ້ອງ — ກະລຸນາເລືອກຈາກລາຍການໃນ Template`);
+          continue; // Option D: strict — skip row if category is wrong
+        }
+
+        // Parse discount end date DD/MM/YYYY → ISO
+        let discountEndsAt: string | null = null;
+        if (discountPercent > 0 && discountEndsAtRaw) {
+          const parts = discountEndsAtRaw.split('/');
+          if (parts.length === 3) {
+            const [day, month, year] = parts;
+            discountEndsAt = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          } else {
+            skipped.push(`ແຖວ ${rowNum} (${nameLa}): ຮູບແບບວັນທີຕ້ອງເປັນ DD/MM/YYYY`);
+            continue;
+          }
+        }
+
+        toInsert.push({
+          shop_id: shopId,
+          name_la: nameLa,
+          description_la: descriptionLa,
+          price,
+          stock,
+          category_id: categoryId,
+          images: [],
+          discount_percent: discountPercent,
+          discount_ends_at: discountEndsAt,
+        });
+      }
+
+      // Batch insert all valid products
+      if (toInsert.length > 0) {
+        const { data, error } = await supabase
           .from('products')
-          .update({ stock: newStock })
-          .eq('id', productId)
-          .eq('shop_id', shopId); // Double safety check
+          .insert(toInsert)
+          .select();
 
         if (error) {
-          skipped.push(`${productName}: ${error.message}`);
+          alert('ເກີດຂໍ້ຜິດພາດ: ' + error.message);
         } else {
-          successCount++;
+          successCount = data?.length || toInsert.length;
         }
       }
 
       setImportResults({ success: successCount, skipped });
-      await fetchProducts(currentPage);
+      await fetchProducts(1);
+      setCurrentPage(1);
+
     } catch (err: any) {
       alert('ອ່ານໄຟລ໌ບໍ່ສຳເລັດ: ' + err.message);
     } finally {
@@ -282,42 +355,36 @@ export default function SellerProducts() {
         </div>
       </div>
 
-      {/* Stock management toolbar */}
+      {/* Bulk management toolbar */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="font-semibold text-blue-800 mb-3">📦 ຈັດການ</h3>
+        <h3 className="font-semibold text-blue-800 mb-3">📦 ຈັດການສິນຄ້າ</h3>
         <div className="flex flex-wrap gap-3">
-          {/* Export stock summary */}
           <button
             onClick={handleExportStock}
             className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700"
           >
             📊 ສົ່ງອອກ Excel
           </button>
-
-          {/* Download import template */}
           <button
             onClick={handleDownloadTemplate}
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
           >
             📥 ດາວໂຫຼດ Template
           </button>
-
-          {/* Import stock */}
           <label className={`px-4 py-2 rounded text-sm text-white cursor-pointer ${importing ? 'bg-gray-400' : 'bg-orange-600 hover:bg-orange-700'}`}>
-            {importing ? 'ກຳລັງນຳເຂົ້າ...' : '📤 ນຳເຂົ້າ Excel'}
+            {importing ? 'ກຳລັງນຳເຂົ້າ...' : '📤 ນຳເຂົ້າ Excel ສິນຄ້າ'}
             <input
               ref={fileInputRef}
               type="file"
               accept=".xlsx,.xls"
               className="hidden"
-              onChange={handleImportStock}
+              onChange={handleImportProducts}
               disabled={importing}
             />
           </label>
         </div>
-
-        <p className="text-xs text-blue-600 mt-2">
-          ຂັ້ນຕອນ: 1) ດາວໂຫຼດ Template → 2) ໃສ່ຕົວເລກສ່ວນໃໝ່ → 3) ນຳເຂົ້າໄຟລ໌
+        <p className="text-xs text-gray-500 mt-2">
+          ຂັ້ນຕອນ: 1) ດາວໂຫຼດແມ່ແບບ → 2) ເລືອກປະເພດຈາກ dropdown → 3) ນຳເຂົ້າໄຟລ໌
         </p>
       </div>
 
@@ -325,7 +392,7 @@ export default function SellerProducts() {
       {importResults && (
         <div className="mb-6 p-4 bg-white border rounded-lg">
           <h3 className="font-semibold mb-2">ຜົນການນຳເຂົ້າ</h3>
-          <p className="text-green-600">✅ ອັບເດດສຳເລັດ: {importResults.success} ສິນຄ້າ</p>
+          <p className="text-green-600">✅ ເພີ່ມສິນຄ້າສຳເລັດ: {importResults.success} ລາຍການ</p>
           {importResults.skipped.length > 0 && (
             <div className="mt-2">
               <p className="text-orange-600">⚠️ ຖືກຂ້າມ: {importResults.skipped.length} ລາຍການ</p>
@@ -350,53 +417,39 @@ export default function SellerProducts() {
               return (
                 <div
                   key={product.id}
-                  className={`border rounded-lg p-3 shadow-sm hover:shadow-md transition bg-white flex flex-row justify-between gap-3 ${product.stock === 0 ? 'border-red-200' : product.stock <= 5 ? 'border-orange-200' : ''}`}
+                  className={`border rounded-lg p-3 shadow-sm hover:shadow-md transition bg-white flex flex-row justify-between gap-3 ${
+                    product.stock === 0 ? 'border-red-200' : product.stock <= 5 ? 'border-orange-200' : ''
+                  }`}
                 >
-                  {/* Left side */}
                   <div className="flex-1">
                     <h2 className="text-md font-semibold">{product.name_la}</h2>
-                    <p className="text-green-600 font-bold text-sm">
-                      {product.price.toLocaleString()} ກີບ
-                    </p>
-                    {/* Stock badge */}
+                    <p className="text-green-600 font-bold text-sm">{product.price.toLocaleString()} ກີບ</p>
+                    {product.categories?.name_la && (
+                      <p className="text-gray-400 text-xs">{product.categories.name_la}</p>
+                    )}
                     <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${stockStatus.color}`}>
                       {stockStatus.label}
                     </span>
-                    {/* Discount badge */}
-                    {product.discount_percent > 0 && new Date(product.discount_ends_at) > new Date() && (
+                    {product.discount_percent > 0 && product.discount_ends_at && new Date(product.discount_ends_at) > new Date() && (
                       <span className="inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1 ml-1 bg-red-100 text-red-700">
                         -{product.discount_percent}%
                       </span>
                     )}
                     <div className="flex gap-2 mt-2">
-                      <Link
-                        href={`/seller/products/${product.id}/edit`}
-                        className="text-blue-600 text-xs hover:underline"
-                      >
+                      <Link href={`/seller/products/${product.id}/edit`} className="text-blue-600 text-xs hover:underline">
                         ແກ້ໄຂ
                       </Link>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 text-xs hover:underline"
-                      >
+                      <button onClick={() => handleDelete(product.id)} className="text-red-600 text-xs hover:underline">
                         ລຶບ
                       </button>
                     </div>
                   </div>
-                  {/* Right side: image */}
                   <div className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded overflow-hidden relative">
                     {product.images?.[0] ? (
-                      <img
-                        src={product.images[0]}
-                        alt={product.name_la}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={product.images[0]} alt={product.name_la} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        ບໍ່ມີຮູບ
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">ບໍ່ມີຮູບ</div>
                     )}
-                    {/* Out of stock overlay */}
                     {product.stock === 0 && (
                       <div className="absolute inset-0 bg-red-600 bg-opacity-60 flex items-center justify-center">
                         <span className="text-white text-xs font-bold">ໝົດ</span>
@@ -414,21 +467,11 @@ export default function SellerProducts() {
 
           {totalPages > 1 && (
             <div className="flex justify-center gap-2 mt-6">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-              >
-                ກ່ອນໜ້າ
-              </button>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50">ກ່ອນໜ້າ</button>
               <span className="px-3 py-1">ໜ້າ {currentPage} / {totalPages}</span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-              >
-                ຕໍ່ໄປ
-              </button>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50">ຕໍ່ໄປ</button>
             </div>
           )}
         </>
