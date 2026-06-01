@@ -173,7 +173,7 @@ export default function EditProduct() {
             className="w-full border rounded px-3 py-2" rows={3} />
         </div>
         <div>
-          <label>ລາຄາພື້ນຖານ (ກີບ)</label>
+          <label>ລາຄາຂາຍ (ກີບ)</label>
           <input type="number" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })}
             className="w-full border rounded px-3 py-2" />
         </div>
@@ -240,7 +240,7 @@ export default function EditProduct() {
                 </button>
                 <span className="text-sm text-gray-600">ສ່ວນລວມ: <strong>{totalVariantStock}</strong> ຊິ້ນ</span>
               </div>
-              <div className="mt-2 text-xs text-gray-500">ຖັນ: ຊື່ຕົວເລືອກ | ຈຳນວນສ່ວນ | ລາຄາ +/- (0 = ລາຄາດຽວກັນ)</div>
+              <div className="mt-2 text-xs text-gray-500">ຊ້ອງທີ 1: ລາຍການ  |  ຊ້ອງທີ 2: ຈຳນວນສິນຄ້າ  |   ຊ້ອງທີ 3: ລາຄາ +/- (ຖ້າລາຄາເທົ່າກັບລາຄາຂາຍແມ່ນໃສ່ 0)</div>
             </div>
           )}
         </div>
