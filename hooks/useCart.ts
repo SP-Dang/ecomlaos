@@ -34,6 +34,9 @@ export function useCart() {
   const [cartId, setCartId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const cartIdRef = useRef<string | null>(null);
+  // Unique channel name per instance — prevents conflicts when multiple
+  // components (Navbar, product page, cart page) all call useCart()
+  const channelNameRef = useRef(`cart_items_${Math.random().toString(36).slice(2)}`);
 
   const getOrCreateSupabaseCart = async (userId: string): Promise<string> => {
     if (cartIdRef.current) return cartIdRef.current;
@@ -222,7 +225,7 @@ export function useCart() {
     // This ensures ALL instances of useCart (Navbar, checkout, cart page)
     // stay in sync — e.g. badge drops to 0 immediately after clearCart().
     const channel = supabase
-      .channel('cart_items_changes')
+      .channel(channelNameRef.current)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cart_items' },
