@@ -3,17 +3,26 @@
 import { useCart } from '@/hooks/useCart';
 import Link from 'next/link';
 
-const getFinalPrice = (price: number, discountPercent: number, discountEndsAt: string | null): number => {
-  if (!discountPercent || discountPercent <= 0) return price;
-  if (!discountEndsAt || new Date(discountEndsAt) <= new Date()) return price;
-  return Math.round(price - (price * discountPercent / 100));
+const getFinalPrice = (
+  price: number,
+  discountPercent: number,
+  discountEndsAt: string | null,
+  variantPriceAdjustment: number = 0
+): number => {
+  // 1. Apply discount to the base product price only
+  let discountedBase = price;
+  if (discountPercent > 0 && discountEndsAt && new Date(discountEndsAt) > new Date()) {
+    discountedBase = Math.round(price - (price * discountPercent / 100));
+  }
+  // 2. Add variant price adjustment on top (not discounted)
+  return discountedBase + variantPriceAdjustment;
 };
 
 export default function CartPage() {
   const { items, loading, updateQuantity, removeItem } = useCart();
 
   const total = items.reduce((sum, i) => {
-    const finalPrice = getFinalPrice(i.product.price, i.product.discount_percent, i.product.discount_ends_at);
+    const finalPrice = getFinalPrice(i.product.price, i.product.discount_percent, i.product.discount_ends_at, i.variant_price_adjustment);
     return sum + finalPrice * i.quantity;
   }, 0);
 
@@ -37,7 +46,8 @@ export default function CartPage() {
             const finalPrice = getFinalPrice(
               item.product.price,
               item.product.discount_percent,
-              item.product.discount_ends_at
+              item.product.discount_ends_at,
+              item.variant_price_adjustment
             );
             const hasDiscount = finalPrice < item.product.price;
             return (

@@ -8,6 +8,7 @@ export interface CartItem {
   product_id: string;
   quantity: number;
   variant_name: string | null;
+  variant_price_adjustment: number;
   product: {
     id: string;
     name_la: string;
@@ -25,6 +26,7 @@ interface GuestCartItem {
   product_id: string;
   quantity: number;
   variant_name: string | null;
+  variant_price_adjustment: number;
 }
 
 export function useCart() {
@@ -57,7 +59,7 @@ export function useCart() {
     const { data, error } = await supabase
       .from('cart_items')
       .select(`
-        id, product_id, quantity, variant_name,
+        id, product_id, quantity, variant_name, variant_price_adjustment,
         product:products (
           id, name_la, price, stock, images, shop_id,
           discount_percent, discount_ends_at,
@@ -71,6 +73,7 @@ export function useCart() {
       product_id: item.product_id,
       quantity: item.quantity,
       variant_name: item.variant_name || null,
+      variant_price_adjustment: item.variant_price_adjustment || 0,
       product: {
         id: item.product.id,
         name_la: item.product.name_la,
@@ -104,6 +107,7 @@ export function useCart() {
             product_id: gi.product_id,
             quantity: gi.quantity,
             variant_name: gi.variant_name || null,
+            variant_price_adjustment: gi.variant_price_adjustment || 0,
             product: {
               id: p.id, name_la: p.name_la, price: p.price, stock: p.stock,
               images: p.images || [], shop_id: p.shop_id,
@@ -128,7 +132,13 @@ export function useCart() {
   };
 
   // variantName is the selected variant e.g. "Size 40"
-  const addToCart = async (productId: string, quantity: number = 1, variantName: string | null = null) => {
+  // variantPriceAdjustment is the +/- price for that variant (e.g. +5000)
+  const addToCart = async (
+    productId: string,
+    quantity: number = 1,
+    variantName: string | null = null,
+    variantPriceAdjustment: number = 0
+  ) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const cid = await getOrCreateSupabaseCart(user.id);
@@ -142,7 +152,7 @@ export function useCart() {
           .eq('id', existing.id);
       } else {
         await supabase.from('cart_items')
-          .insert({ cart_id: cid, product_id: productId, quantity, variant_name: variantName });
+          .insert({ cart_id: cid, product_id: productId, quantity, variant_name: variantName, variant_price_adjustment: variantPriceAdjustment });
       }
       await fetchSupabaseCart(user.id);
     } else {
@@ -152,7 +162,7 @@ export function useCart() {
         i.product_id === productId && i.variant_name === variantName
       );
       if (existing) existing.quantity += quantity;
-      else guestItems.push({ product_id: productId, quantity, variant_name: variantName });
+      else guestItems.push({ product_id: productId, quantity, variant_name: variantName, variant_price_adjustment: variantPriceAdjustment });
       localStorage.setItem('guest_cart', JSON.stringify(guestItems));
       await fetchGuestCart();
     }

@@ -134,7 +134,7 @@ export default function ProductDetailPage() {
       return;
     }
 
-    await addToCart(product.id, quantity, selectedVariant?.name || null);
+    await addToCart(product.id, quantity, selectedVariant?.name || null, selectedVariant?.price_adjustment || 0);
     setAddingToCart(false);
 
     const goToCheckout = confirm(
