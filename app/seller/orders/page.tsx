@@ -58,18 +58,22 @@ export default function SellerOrders() {
       if (userIds.length) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, phone')
           .in('id', userIds);
-        profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        profileMap = new Map(profiles?.map(p => [p.id, { full_name: p.full_name, phone: p.phone }]) || []);
       }
-      // Attach buyer name to each item
-      const itemsWithBuyer = (data || []).map(item => ({
-        ...item,
-        orders: {
-          ...item.orders,
-          buyer_name: profileMap.get(item.orders?.user_id) || 'ບໍ່ລະບຸ'
-        }
-      }));
+      // Attach buyer name + phone to each item
+      const itemsWithBuyer = (data || []).map(item => {
+        const profile = profileMap.get(item.orders?.user_id);
+        return {
+          ...item,
+          orders: {
+            ...item.orders,
+            buyer_name: profile?.full_name || 'ບໍ່ລະບຸ',
+            buyer_phone: profile?.phone || '',
+          }
+        };
+      });
       setAllOrderItems(itemsWithBuyer);
       setTotalPages(Math.ceil((count || 0) / itemsPerPage));
     }
@@ -238,14 +242,30 @@ export default function SellerOrders() {
         <div className="space-y-4">
           {filteredOrders.map((item) => (
             <div key={item.id} className="border rounded p-4">
-              <p><strong>ຊື່ຜູ້ຊື້:</strong> {item.orders?.buyer_name}</p>
-              <p><strong>ສິນຄ້າ:</strong> {item.products?.name_la}</p>
-              <p><strong>ຈຳນວນ:</strong> {item.quantity}</p>
-              <p><strong>ລາຄາຕອນຊື້:</strong> {formatNumber(item.price_at_purchase)} ກີບ</p>
-              <p><strong>ຍອດລວມຄຳສັ່ງ:</strong> {formatNumber(item.orders?.total_amount)} ກີບ</p>
-              <p><strong>ທີ່ຢູ່ຈັດສົ່ງ:</strong> {item.orders?.shipping_address}</p>
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <p><strong>ຊື່ຜູ້ຊື້:</strong> {item.orders?.buyer_name}</p>
+                  {item.orders?.buyer_phone && (
+                    <p><strong>ເບີໂທ:</strong> {item.orders.buyer_phone}</p>
+                  )}
+                  <p><strong>ສິນຄ້າ:</strong> {item.products?.name_la}{item.variant_name ? ` (${item.variant_name})` : ''}</p>
+                  <p><strong>ຈຳນວນ:</strong> {item.quantity}</p>
+                  <p><strong>ລາຄາຕອນຊື້:</strong> {formatNumber(item.price_at_purchase)} ກີບ</p>
+                  <p><strong>ຍອດລວມຄຳສັ່ງ:</strong> {formatNumber(item.orders?.total_amount)} ກີບ</p>
+                  <p><strong>ທີ່ຢູ່ຈັດສົ່ງ:</strong> {item.orders?.shipping_address}</p>
+                </div>
+                {/* Print Label Button */}
+                <a
+                  href={`/seller/orders/${item.orders?.id}/label`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 ml-4 flex items-center gap-1 bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700 transition"
+                >
+                  🖨️ ພິມປ້າຍ
+                </a>
+              </div>
 
-              <div className="mt-2 flex flex-wrap gap-3 items-center">
+              <div className="mt-3 flex flex-wrap gap-3 items-center">
                 <div>
                   <span className="font-semibold">ສະຖານະການຊຳລະ:</span>{' '}
                   {item.orders?.payment_status === 'paid' ? (

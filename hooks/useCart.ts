@@ -212,11 +212,28 @@ export function useCart() {
 
   useEffect(() => {
     fetchCart();
+
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
       cartIdRef.current = null;
       fetchCart();
     });
-    return () => listener?.subscription.unsubscribe();
+
+    // Real-time: re-fetch cart whenever cart_items table changes in the DB.
+    // This ensures ALL instances of useCart (Navbar, checkout, cart page)
+    // stay in sync — e.g. badge drops to 0 immediately after clearCart().
+    const channel = supabase
+      .channel('cart_items_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cart_items' },
+        () => { fetchCart(); }
+      )
+      .subscribe();
+
+    return () => {
+      listener?.subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { items, loading, addToCart, updateQuantity, removeItem, clearCart, cartId, refetch: fetchCart };
