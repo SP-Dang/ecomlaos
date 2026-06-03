@@ -20,14 +20,21 @@ export default function ShippingLabelPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setError('ກະລຸນາເຂົ້າສູ່ລະບົບ'); setLoading(false); return; }
 
-        const { data: shop } = await supabase
+        const { data: shop, error: shopErr } = await supabase
           .from('shops')
-          .select('id, name_la, phone')
+          .select('id, name_la')
           .eq('owner_id', user.id)
-          .single();
-        if (!shop) { setError('ບໍ່ພົບຮ້ານຂອງທ່ານ'); setLoading(false); return; }
+          .maybeSingle();
+        if (shopErr || !shop) { setError('ບໍ່ພົບຮ້ານຂອງທ່ານ'); setLoading(false); return; }
         setShopName(shop.name_la || 'ຮ້ານຂາຍ');
-        setShopPhone(shop.phone || '');
+
+        // Get seller's own phone from profiles
+        const { data: sellerProfile } = await supabase
+          .from('profiles')
+          .select('phone')
+          .eq('id', user.id)
+          .maybeSingle();
+        setShopPhone(sellerProfile?.phone || '');
 
         // Fetch the order
         const { data: orderData, error: orderErr } = await supabase
