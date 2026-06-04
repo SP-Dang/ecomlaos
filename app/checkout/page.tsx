@@ -33,12 +33,13 @@ export default function CheckoutPage() {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [ticketNumber, setTicketNumber] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(false);
 
   useEffect(() => {
-    if (!cartLoading && items.length === 0 && !showQrModal && paymentMethod !== 'lao_qr') {
+    if (!cartLoading && items.length === 0 && !showQrModal && paymentMethod !== 'lao_qr' && !orderPlaced) {
       router.push('/cart');
     }
-  }, [cartLoading, items, router, showQrModal, paymentMethod]);
+  }, [cartLoading, items, router, showQrModal, paymentMethod, orderPlaced]);
 
   const total = items.reduce((sum, i) => {
     const finalPrice = getFinalPrice(i.product.price, i.product.discount_percent, i.product.discount_ends_at, i.variant_price_adjustment);
@@ -123,6 +124,7 @@ export default function CheckoutPage() {
           router.push(`/order/${order.id}`);
         }
       } else {
+        setOrderPlaced(true);
         await clearCart();
         router.push(`/order/${order.id}`);
       }
