@@ -2,6 +2,7 @@
 
 import { useCart } from '@/hooks/useCart';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
 
 const getFinalPrice = (
   price: number,
@@ -20,26 +21,27 @@ const getFinalPrice = (
 
 export default function CartPage() {
   const { items, loading, updateQuantity, removeItem } = useCart();
+  const { locale, t } = useLanguage();
 
   const total = items.reduce((sum, i) => {
     const finalPrice = getFinalPrice(i.product.price, i.product.discount_percent, i.product.discount_ends_at, i.variant_price_adjustment);
     return sum + finalPrice * i.quantity;
   }, 0);
 
-  if (loading) return <div className="text-center p-8">ກຳລັງໂຫຼດກະຕ່າ...</div>;
+  if (loading) return <div className="text-center p-8">{t('loading')}</div>;
 
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">ກະຕ່າຂອງທ່ານຫວ່າງເປົ່າ</h1>
-        <Link href="/" className="text-blue-600 hover:underline">ກັບໄປຊື້ສິນຄ້າ</Link>
+        <h1 className="text-2xl font-bold mb-4">{t('empty_cart')}</h1>
+        <Link href="/" className="text-blue-600 hover:underline">{t('go_back_shopping')}</Link>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">ກະຕ່າສິນຄ້າ</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('cart_page_title')}</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
           {items.map((item) => {
@@ -83,7 +85,7 @@ export default function CartPage() {
 
                 <div className="flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t pt-3 sm:border-t-0 sm:pt-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">ຈຳນວນ:</span>
+                    <span className="text-sm text-gray-500">{t('quantity')}:</span>
                     <input
                       type="number"
                       min="1"
@@ -91,10 +93,10 @@ export default function CartPage() {
                       onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
                       className="w-16 border rounded px-2 py-1 text-sm text-center"
                     />
-                    <button onClick={() => removeItem(item.id)} className="text-red-600 hover:underline text-sm ml-2 cursor-pointer">ລຶບ</button>
+                    <button onClick={() => removeItem(item.id)} className="text-red-600 hover:underline text-sm ml-2 cursor-pointer">{t('delete')}</button>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-400 sm:hidden">ຍອດລວມ:</p>
+                    <p className="text-xs text-gray-400 sm:hidden">{t('total_amount')}:</p>
                     <p className="font-bold text-base sm:text-lg text-blue-600">{(finalPrice * item.quantity).toLocaleString()} ກີບ</p>
                   </div>
                 </div>
@@ -103,13 +105,13 @@ export default function CartPage() {
           })}
         </div>
         <div className="bg-gray-50 p-4 rounded h-fit">
-          <h2 className="text-xl font-bold mb-4">ສະຫຼຸບຍອດຊຳລະ</h2>
+          <h2 className="text-xl font-bold mb-4">{t('payment_summary')}</h2>
           <div className="flex justify-between mb-2">
-            <span>ລາຄາສິນຄ້າ:</span>
+            <span>{t('subtotal')}:</span>
             <span>{total.toLocaleString()} ກີບ</span>
           </div>
           <div className="flex justify-between mb-4 font-bold text-lg">
-            <span>ຍອດລວມ:</span>
+            <span>{t('total_amount')}:</span>
             <span>{total.toLocaleString()} ກີບ</span>
           </div>
           <Link href="/checkout"

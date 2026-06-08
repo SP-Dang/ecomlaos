@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useCart } from '@/hooks/useCart';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/context/LanguageContext';
 
 const getFinalPrice = (
   price: number,
@@ -27,6 +28,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { locale, t } = useLanguage();
 
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrImageUrl, setQrImageUrl] = useState('');
@@ -47,7 +49,7 @@ export default function CheckoutPage() {
   }, 0);
 
   const handlePlaceOrder = async () => {
-    if (!shippingAddress) { setError('ກະລຸນາປ້ອນທີ່ຢູ່ຈັດສົ່ງ'); return; }
+    if (!shippingAddress) { setError(t('input_shipping_address')); return; }
     setLoading(true); setError('');
 
     try {
@@ -114,12 +116,12 @@ export default function CheckoutPage() {
             setShowQrModal(true);
             await clearCart();
           } else {
-            setError('ບໍ່ສາມາດສ້າງ QR code, ກະລຸນາລອງໃໝ່');
+            setError(locale === 'en' ? 'Could not generate QR code, please try again' : 'ບໍ່ສາມາດສ້າງ QR code, ກະລຸນາລອງໃໝ່');
             await clearCart();
             router.push(`/order/${order.id}`);
           }
         } catch {
-          setError('ເກີດຂໍ້ຜິດພາດໃນການສ້າງ QR');
+          setError(locale === 'en' ? 'Error generating QR code' : 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງ QR');
           await clearCart();
           router.push(`/order/${order.id}`);
         }
@@ -129,26 +131,26 @@ export default function CheckoutPage() {
         router.push(`/order/${order.id}`);
       }
     } catch (err: any) {
-      setError('ເກີດຂໍ້ຜິດພາດ: ' + (err.message || 'ກະລຸນາລອງໃໝ່'));
+      setError((locale === 'en' ? 'An error occurred: ' : 'ເກີດຂໍ້ຜິດພາດ: ') + (err.message || (locale === 'en' ? 'please try again' : 'ກະລຸນາລອງໃໝ່')));
     } finally {
       setLoading(false);
     }
   };
 
   const submitTicket = async () => {
-    if (!ticketNumber.trim()) { alert('ກະລຸນາໃສ່ເລກອ້າງອິງ'); return; }
+    if (!ticketNumber.trim()) { alert(locale === 'en' ? 'Please enter reference number' : 'ກະລຸນາໃສ່ເລກອ້າງອິງ'); return; }
     if (!currentOrderId) return;
     setSubmittingTicket(true);
     try {
       const { data: pv } = await supabase
         .from('payment_verifications').select('id').eq('order_id', currentOrderId).single();
-      if (!pv) { alert('ບໍ່ພົບຂໍ້ມູນການຊຳລະ'); return; }
+      if (!pv) { alert(locale === 'en' ? 'Payment details not found' : 'ບໍ່ພົບຂໍ້ມູນການຊຳລະ'); return; }
       const { error } = await supabase.from('payment_verifications')
         .update({ ticket_number: ticketNumber, status: 'ticket_submitted', submitted_at: new Date().toISOString() })
         .eq('id', pv.id);
       if (error) alert(error.message);
       else {
-        alert('ຂອບໃຈສຳລັບການຊຳລະ. ຜູ້ດູແລຈະກວດສອບ.');
+        alert(locale === 'en' ? 'Thank you for your payment. Admin will verify it.' : 'ຂອບໃຈສຳລັບການຊຳລະ. ຜູ້ດູແລຈະກວດສອບ.');
         setShowQrModal(false); setTicketNumber('');
         router.push(`/order/${currentOrderId}`);
       }
@@ -156,22 +158,22 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-2xl bg-white shadow rounded-lg mt-6">
       {cartLoading && (
         <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
-          <div className="text-center p-8">ກຳລັງໂຫຼດກະຕ່າ...</div>
+          <div className="text-center p-8">{t('loading')}</div>
         </div>
       )}
-      <h1 className="text-2xl font-bold mb-6">ຊຳລະຄ່າສິນຄ້າ</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('checkout_page_title')}</h1>
 
       {/* Order summary */}
       <div className="bg-gray-50 p-4 rounded mb-6">
-        <h2 className="font-bold mb-2">ສິນຄ້າທີ່ສັ່ງ</h2>
+        <h2 className="font-bold mb-2">{t('ordered_items')}</h2>
         {items.map(item => {
           const finalPrice = getFinalPrice(item.product.price, item.product.discount_percent, item.product.discount_ends_at, item.variant_price_adjustment);
           const hasDiscount = finalPrice < item.product.price;
           return (
-            <div key={item.id} className="flex justify-between text-sm mb-2">
+            <div key={item.id} className="flex justify-between text-sm mb-2 border-b pb-2">
               <span>
                 {item.product.name_la}
                 {item.variant_name && (
@@ -200,56 +202,56 @@ export default function CheckoutPage() {
           );
         })}
         <div className="border-t pt-2 mt-2 font-bold flex justify-between">
-          <span>ຍອດລວມ</span>
+          <span>{t('total_amount')}</span>
           <span className="text-green-600">{total.toLocaleString()} ກີບ</span>
         </div>
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); handlePlaceOrder(); }} className="space-y-4">
         <div>
-          <label className="block font-medium">ທີ່ຢູ່ຈັດສົ່ງ</label>
+          <label className="block font-medium">{t('shipping_address')}</label>
           <textarea required value={shippingAddress}
             onChange={(e) => setShippingAddress(e.target.value)}
             className="w-full border rounded px-3 py-2" rows={3}
-            placeholder="ບ້ານ, ເມືອງ, ແຂວງ, ເບີໂທ" />
+            placeholder={t('placeholder_address')} />
         </div>
         <div>
-          <label className="block font-medium">ວິທີຊຳລະ</label>
+          <label className="block font-medium">{t('payment_method')}</label>
           <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
             className="w-full border rounded px-3 py-2">
-            <option value="cod">ຊຳລະເມື່ອໄດ້ຮັບສິນຄ້າ (COD)</option>
-            <option value="bank_transfer">ໂອນເງິນຜ່ານທະນາຄານ</option>
-            <option value="lao_qr">ຊຳລະຜ່ານ QR Code (ທະນາຄານລາວ)</option>
+            <option value="cod">{t('cod')}</option>
+            <option value="bank_transfer">{t('bank_transfer')}</option>
+            <option value="lao_qr">{t('qr_code')}</option>
           </select>
         </div>
         {error && <div className="text-red-500">{error}</div>}
         <button type="submit" disabled={loading}
-          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:bg-gray-400">
-          {loading ? 'ກຳລັງດຳເນີນການ...' : 'ຢືນຢັນການສັ່ງຊື້'}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:bg-gray-400 cursor-pointer">
+          {loading ? (locale === 'en' ? 'Processing...' : 'ກຳລັງດຳເນີນການ...') : t('confirm_purchase')}
         </button>
       </form>
 
       {showQrModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">ຊຳລະດ້ວຍ QR Code</h2>
+            <h2 className="text-xl font-bold mb-4">{t('bank_details_title')}</h2>
             <div className="flex justify-center mb-4">
               {qrImageUrl && <img src={qrImageUrl} alt="QR Payment" className="w-64 h-64" />}
             </div>
             <p className="text-center text-sm mb-4">
-              ສະແກນ QR ດ້ວຍແອັບທະນາຄານ ແລ້ວໃສ່ເລກອ້າງອິງ 6 ໂຕສຸດທ້າຍ.
+              {t('bank_details_desc')}
             </p>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">ເບີໂທ - ເລກອ້າງອິງ</label>
+              <label className="block text-sm font-medium mb-1">{t('ref_number_label')}</label>
               <input type="text" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)}
-                className="w-full border rounded px-3 py-2" placeholder="ຕົວຢ່າງ: 0205511234-123456" />
+                className="w-full border rounded px-3 py-2" placeholder={t('ref_number_placeholder')} />
             </div>
             <div className="flex gap-2">
               <button onClick={() => router.push(`/order/${currentOrderId}`)}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400">ຂ້າມ</button>
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400 cursor-pointer">{t('skip_btn')}</button>
               <button onClick={submitTicket} disabled={submittingTicket}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400">
-                {submittingTicket ? 'ກຳລັງສົ່ງ...' : 'ຢືນຢັນ ເລກອ້າງອິງ'}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 cursor-pointer">
+                {submittingTicket ? t('submitting_ref') : t('confirm_ref_btn')}
               </button>
             </div>
           </div>

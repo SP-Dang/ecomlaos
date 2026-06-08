@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
@@ -15,6 +16,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const { t, locale } = useLanguage();
   const itemsPerPage = 12;
 
   const searchRef = useRef(searchTerm);
@@ -141,7 +143,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">ກຳລັງໂຫຼດ...</p>
+          <p className="text-gray-600">{t('loading')}</p>
         </div>
       </div>
     );
@@ -155,7 +157,7 @@ export default function Home() {
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-2xl">🔥</span>
-              <h2 className="text-2xl font-bold text-red-600">ສິນຄ້າລົດລາຄາ</h2>
+              <h2 className="text-2xl font-bold text-red-600">{t('sale_products')}</h2>
               <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">SALE</span>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-3">
@@ -170,7 +172,9 @@ export default function Home() {
                       {product.images?.[0] ? (
                         <Image src={product.images[0]} alt={product.name_la} fill sizes="176px" className="object-cover" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">ບໍ່ມີຮູບ</div>
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          {t('no_image') === 'no_image' ? 'ບໍ່ມີຮູບ' : t('no_image')}
+                        </div>
                       )}
                       <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
                         -{product.discount_percent}%
@@ -181,7 +185,9 @@ export default function Home() {
                       <p className="text-red-600 font-bold text-sm">{discountedPrice.toLocaleString()} ກີບ</p>
                       <p className="text-gray-400 text-xs line-through">{product.price.toLocaleString()} ກີບ</p>
                       {hoursLeft <= 24 && (
-                        <p className="text-orange-500 text-xs mt-1 font-medium">⏰ ເຫຼືອ {hoursLeft} ຊົ່ວໂມງ</p>
+                        <p className="text-orange-500 text-xs mt-1 font-medium">
+                          {t('time_hours_left') === 'time_hours_left' ? `⏰ ເຫຼືອ ${hoursLeft} ຊົ່ວໂມງ` : `⏰ ${hoursLeft} hours left`}
+                        </p>
                       )}
                     </div>
                   </Link>
@@ -193,32 +199,32 @@ export default function Home() {
 
         <div className="bg-white p-4 rounded-lg shadow mb-8 grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px] w-full">
-            <label className="block text-sm font-medium mb-1">ຄົ້ນຫາສິນຄ້າ</label>
-            <input type="text" placeholder="ຊື່ສິນຄ້າ..." value={searchTerm}
+            <label className="block text-sm font-medium mb-1">{t('search_input_label')}</label>
+            <input type="text" placeholder={t('search_product_placeholder')} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
               className="w-full border rounded px-3 py-2" />
           </div>
           <div className="w-full sm:w-auto md:w-48">
-            <label className="block text-sm font-medium mb-1">ປະເພດສິນຄ້າ</label>
+            <label className="block text-sm font-medium mb-1">{t('category')}</label>
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full border rounded px-3 py-2">
-              <option value="all">ທັງໝົດ</option>
+              <option value="all">{t('category_all')}</option>
               {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name_la}</option>)}
             </select>
           </div>
           <div className="flex gap-2 w-full sm:w-auto md:w-auto">
-            <button onClick={applyFilters} className="flex-1 sm:flex-initial bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 cursor-pointer text-center">ຄົ້ນຫາ</button>
-            <button onClick={clearFilters} className="flex-1 sm:flex-initial bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 cursor-pointer text-center">ລ້າງ</button>
+            <button onClick={applyFilters} className="flex-1 sm:flex-initial bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 cursor-pointer text-center">{t('search')}</button>
+            <button onClick={clearFilters} className="flex-1 sm:flex-initial bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 cursor-pointer text-center">{t('clear')}</button>
           </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">🛍️</span>
-          <h2 className="text-2xl font-bold text-gray-800">ສິນຄ້າທັງໝົດ</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{t('all_products')}</h2>
         </div>
 
         {products.length === 0 ? (
-          <p className="text-center text-gray-500 mt-8">ບໍ່ພົບສິນຄ້າ</p>
+          <p className="text-center text-gray-500 mt-8">{t('no_products_found')}</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => {
@@ -242,9 +248,9 @@ export default function Home() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/product/${product.id}`} className="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700 transition">ເບິ່ງ</Link>
+                      <Link href={`/product/${product.id}`} className="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700 transition">{t('view_product')}</Link>
                       <Link href={product.shops?.slug ? `/shop/${product.shops.slug}` : '#'} className="text-sm text-blue-600 hover:underline truncate">
-                        {product.shops?.name_la || 'ຮ້ານທົ່ວໄປ'}
+                        {product.shops?.name_la || (locale === 'en' ? 'General Shop' : 'ຮ້ານທົ່ວໄປ')}
                       </Link>
                     </div>
                   </div>
@@ -252,7 +258,9 @@ export default function Home() {
                     {product.images?.[0] ? (
                       <Image src={product.images[0]} alt={product.name_la} fill sizes="96px" className="object-cover" loading="lazy" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">ບໍ່ມີຮູບ</div>
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                        {t('no_image') === 'no_image' ? 'ບໍ່ມີຮູບ' : t('no_image')}
+                      </div>
                     )}
                     {hasDiscount && (
                       <div className="absolute top-0 left-0 bg-red-600 text-white text-xs font-bold px-1">-{product.discount_percent}%</div>
@@ -269,9 +277,9 @@ export default function Home() {
             <button
               onClick={() => { setLoadingMore(true); setPage(p => p + 1); }}
               disabled={loadingMore}
-              className="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 disabled:opacity-50"
+              className="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 disabled:opacity-50 cursor-pointer"
             >
-              {loadingMore ? 'ກຳລັງໂຫຼດ...' : 'ໂຫຼດເພີ່ມເຕີມ'}
+              {loadingMore ? t('loading') : t('more_products')}
             </button>
           </div>
         )}

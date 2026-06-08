@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function SellerOrders() {
   const [shopId, setShopId] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export default function SellerOrders() {
   const [endDate, setEndDate] = useState('');
   const [orderStatus, setOrderStatus] = useState('all');
   const [paymentStatus, setPaymentStatus] = useState('all');
+  const { locale, t } = useLanguage();
 
   // Fetch raw order_items for the shop with pagination (no filters)
   const fetchOrderItems = useCallback(async (page: number) => {
@@ -169,132 +171,125 @@ export default function SellerOrders() {
   const formatNumber = (num: number) => num.toLocaleString('en-US');
 
   const getStatusText = (status: string) => {
-    const map: Record<string, string> = {
-      pending: 'ລໍຖ້າການຢືນຢັນ',
-      confirmed: 'ຢືນຢັນແລ້ວ',
-      processing: 'ກຳລັງກະກຽມ',
-      shipped: 'ຈັດສົ່ງແລ້ວ',
-      delivered: 'ລູກຄ້າໄດ້ຮັບສິນຄ້າ',
-    };
-    return map[status] || status;
+    return t(status);
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">ຄຳສັ່ງຊື້ຂອງຮ້ານ</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('seller_orders_title')}</h1>
 
       {/* Filters */}
       <div className="bg-gray-50 p-4 rounded mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <input
             type="text"
-            placeholder="ຄົ້ນຫາ (ສິນຄ້າ / ຜູ້ຊື້)"
+            placeholder={t('filter_search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border rounded px-3 py-1"
+            className="border rounded px-3 py-2 text-sm bg-white"
           />
           <input
             type="date"
-            placeholder="ວັນທີເລີ່ມ"
+            placeholder={t('filter_start_date')}
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="border rounded px-3 py-1"
+            className="border rounded px-3 py-2 text-sm bg-white"
           />
           <input
             type="date"
-            placeholder="ວັນທີສິ້ນສຸດ"
+            placeholder={t('filter_end_date')}
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="border rounded px-3 py-1"
+            className="border rounded px-3 py-2 text-sm bg-white"
           />
           <select
             value={orderStatus}
             onChange={(e) => setOrderStatus(e.target.value)}
-            className="border rounded px-3 py-1"
+            className="border rounded px-3 py-2 text-sm bg-white"
           >
-            <option value="all">ສະຖານະຄຳສັ່ງທັງໝົດ</option>
-            <option value="pending">ລໍຖ້າການຢືນຢັນ</option>
-            <option value="confirmed">ຢືນຢັນແລ້ວ</option>
-            <option value="processing">ກຳລັງກະກຽມ</option>
-            <option value="shipped">ຈັດສົ່ງແລ້ວ</option>
-            <option value="delivered">ລູກຄ້າໄດ້ຮັບສິນຄ້າ</option>
+            <option value="all">{t('filter_all_orders')}</option>
+            <option value="pending">{t('pending')}</option>
+            <option value="confirmed">{t('confirmed')}</option>
+            <option value="processing">{t('processing')}</option>
+            <option value="shipped">{t('shipped')}</option>
+            <option value="delivered">{t('delivered')}</option>
           </select>
           <select
             value={paymentStatus}
             onChange={(e) => setPaymentStatus(e.target.value)}
-            className="border rounded px-3 py-1"
+            className="border rounded px-3 py-2 text-sm bg-white"
           >
-            <option value="all">ສະຖານະການຊຳລະທັງໝົດ</option>
-            <option value="unpaid">ຍັງບໍ່ທັນຊຳລະ</option>
-            <option value="paid">ຊຳລະແລ້ວ</option>
+            <option value="all">{t('filter_all_payments')}</option>
+            <option value="unpaid">{t('unpaid')}</option>
+            <option value="paid">{t('paid')}</option>
           </select>
         </div>
-        <button onClick={resetFilters} className="mt-3 text-sm text-blue-600 hover:underline">
-          ລ້າງຕົວກອງ
+        <button onClick={resetFilters} className="mt-3 text-sm text-blue-600 hover:underline cursor-pointer">
+          {t('clear_filters')}
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-8">ກຳລັງໂຫຼດ...</div>
+        <div className="text-center py-8">{t('loading')}</div>
       ) : filteredOrders.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">ບໍ່ມີຄຳສັ່ງ</div>
+        <div className="text-center py-8 text-gray-500">{locale === 'en' ? 'No orders' : 'ບໍ່ມີຄຳສັ່ງ'}</div>
       ) : (
         <div className="space-y-4">
           {filteredOrders.map((item) => (
-            <div key={item.id} className="border rounded p-4">
+            <div key={item.id} className="border rounded p-4 bg-white shadow-sm">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="space-y-1 flex-1 min-w-0">
-                  <p><strong>ຊື່ຜູ້ຊື້:</strong> {item.orders?.buyer_name}</p>
+                <div className="space-y-1 flex-1 min-w-0 text-sm">
+                  <p><strong>{t('buyer_name')}:</strong> {item.orders?.buyer_name}</p>
                   {item.orders?.buyer_phone && (
-                    <p><strong>ເບີໂທ:</strong> {item.orders.buyer_phone}</p>
+                    <p><strong>{t('buyer_phone')}:</strong> {item.orders.buyer_phone}</p>
                   )}
-                  <p><strong>ສິນຄ້າ:</strong> {item.products?.name_la}{item.variant_name ? ` (${item.variant_name})` : ''}</p>
-                  <p><strong>ຈຳນວນ:</strong> {item.quantity}</p>
-                  <p><strong>ລາຄາຕອນຊື້:</strong> {formatNumber(item.price_at_purchase)} ກີບ</p>
-                  <p><strong>ຍອດລວມຄຳສັ່ງ:</strong> {formatNumber(item.orders?.total_amount)} ກີບ</p>
-                  <p><strong>ທີ່ຢູ່ຈັດສົ່ງ:</strong> {item.orders?.shipping_address}</p>
+                  <p><strong>{locale === 'en' ? 'Product' : 'ສິນຄ້າ'}:</strong> {item.products?.name_la}{item.variant_name ? ` (${item.variant_name})` : ''}</p>
+                  <p><strong>{t('quantity')}:</strong> {item.quantity}</p>
+                  <p><strong>{locale === 'en' ? 'Price at Purchase:' : 'ລາຄາຕອນຊື້:'}</strong> {formatNumber(item.price_at_purchase)} ກີບ</p>
+                  <p><strong>{locale === 'en' ? 'Order Total:' : 'ຍອດລວມຄຳສັ່ງ:'}</strong> {formatNumber(item.orders?.total_amount)} ກີບ</p>
+                  <p><strong>{t('shipping_address')}:</strong> {item.orders?.shipping_address}</p>
                 </div>
                 {/* Print Label Button */}
                 <a
                   href={`/seller/orders/${item.orders?.id}/label`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded text-sm hover:bg-indigo-700 transition font-medium"
+                  className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded text-sm hover:bg-indigo-700 transition font-medium cursor-pointer"
                 >
-                  🖨️ ພິມປ້າຍ
+                  {t('print_label')}
                 </a>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-3 items-center">
+              <div className="mt-3 flex flex-wrap gap-3 items-center text-sm border-t pt-3">
                 <div>
-                  <span className="font-semibold">ສະຖານະການຊຳລະ:</span>{' '}
+                  <span className="font-semibold">{t('payment_status')}:</span>{' '}
                   {item.orders?.payment_status === 'paid' ? (
-                    <span className="text-green-600">ຊຳລະແລ້ວ</span>
+                    <span className="text-green-600 font-medium">{t('paid')}</span>
                   ) : (
-                    <span className="text-red-600">ຍັງບໍ່ທັນຊຳລະ</span>
+                    <span className="text-red-600 font-medium">{t('unpaid')}</span>
                   )}
                 </div>
                 {item.orders?.payment_status !== 'paid' && (
                   <button
                     onClick={() => handleMarkPaid(item.orders.id)}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-sm"
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm cursor-pointer"
                   >
-                    ຢືນຢັນການຊຳລະ
+                    {t('confirm_payment_btn')}
                   </button>
                 )}
 
-                <div className="ml-auto">
-                  <label className="font-semibold mr-2">ສະຖານະຄຳສັ່ງ:</label>
+                <div className="ml-auto flex items-center gap-2">
+                  <label className="font-semibold">{t('order_status')}:</label>
                   <select
                     value={item.orders?.status}
                     onChange={(e) => handleStatusChange(item.orders.id, e.target.value)}
-                    className="border rounded px-2 py-1 text-sm"
+                    className="border rounded px-2 py-1 text-sm bg-white"
                   >
-                    <option value="pending">ລໍຖ້າການຢືນຢັນ</option>
-                    <option value="confirmed">ຢືນຢັນແລ້ວ</option>
-                    <option value="processing">ກຳລັງກະກຽມ</option>
-                    <option value="shipped">ຈັດສົ່ງແລ້ວ</option>
-                    <option value="delivered">ລູກຄ້າໄດ້ຮັບສິນຄ້າ</option>
+                    <option value="pending">{t('pending')}</option>
+                    <option value="confirmed">{t('confirmed')}</option>
+                    <option value="processing">{t('processing')}</option>
+                    <option value="shipped">{t('shipped')}</option>
+                    <option value="delivered">{t('delivered')}</option>
                   </select>
                 </div>
               </div>
@@ -309,19 +304,19 @@ export default function SellerOrders() {
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
-            ກ່ອນໜ້າ
+            {t('pagination_prev')}
           </button>
-          <span className="px-3 py-1">
-            ໜ້າ {currentPage} / {totalPages}
+          <span className="px-3 py-1 text-sm">
+            {locale === 'en' ? `Page ${currentPage} / ${totalPages}` : `ໜ້າ ${currentPage} / ${totalPages}`}
           </span>
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
-            ຕໍ່ໄປ
+            {t('pagination_next')}
           </button>
         </div>
       )}

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useCart } from '@/hooks/useCart';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function Navbar() {
   const [user, setUser] = useState<any>(null);
@@ -13,6 +14,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { items } = useCart();
+  const { locale, setLocale, t } = useLanguage();
 
   // Total quantity across all cart items
   const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -75,9 +77,18 @@ export default function Navbar() {
           ຮ້ານຄ້າລາວ
         </Link>
         <div className="flex gap-4 items-center">
+          {/* Language Switcher Toggle */}
+          <button 
+            onClick={() => setLocale(locale === 'lo' ? 'en' : 'lo')}
+            className="text-gray-600 hover:text-blue-600 font-semibold px-2 py-1 border rounded text-xs transition cursor-pointer"
+            title={locale === 'lo' ? 'Switch to English' : 'ປ່ຽນເປັນພາສາລາວ'}
+          >
+            🌐 {locale === 'lo' ? 'EN' : 'LA'}
+          </button>
+
           {/* Cart icon with badge - always visible */}
           <Link href="/cart" className="relative text-gray-600 hover:text-blue-600 mr-2 md:mr-0">
-            🛒 <span className="hidden sm:inline">ກະຕ່າ</span>
+            🛒 <span className="hidden sm:inline">{t('cart')}</span>
             {cartCount > 0 && (
               <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                 {cartCount > 99 ? '99+' : cartCount}
@@ -95,12 +106,12 @@ export default function Navbar() {
                 </span>
                 {role === 'buyer' && (
                   <Link href="/register-shop" className="text-green-600 hover:underline">
-                    ຂາຍສິນຄ້າ
+                    {t('sell_product')}
                   </Link>
                 )}
                 {role === 'seller' && hasActiveShop && (
                   <Link href="/seller/dashboard" className="text-blue-600 hover:underline">
-                    ບໍລິຫານຮ້ານຂອງຂ້ອຍ
+                    {t('manage_shop')}
                   </Link>
                 )}
                 {role === 'admin' && (
@@ -109,19 +120,19 @@ export default function Navbar() {
                   </Link>
                 )}
                 <Link href="/orders" className="text-gray-600 hover:text-blue-600">
-                  ປະຫວັດຄຳສັ່ງ
+                  {t('order_history')}
                 </Link>
                 <button onClick={handleLogout} className="text-red-600 hover:underline cursor-pointer">
-                  ອອກຈາກລະບົບ
+                  {t('logout')}
                 </button>
               </>
             ) : (
               <>
                 <Link href="/login" className="text-blue-600 hover:underline">
-                  ເຂົ້າສູ່ລະບົບ
+                  {t('login')}
                 </Link>
                 <Link href="/register" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                  ລົງທະບຽນ
+                  {t('register')}
                 </Link>
               </>
             )}
@@ -156,12 +167,12 @@ export default function Navbar() {
               </div>
               {role === 'buyer' && (
                 <Link href="/register-shop" onClick={() => setIsOpen(false)} className="text-green-600 hover:underline py-1">
-                  ຂາຍສິນຄ້າ
+                  {t('sell_product')}
                 </Link>
               )}
               {role === 'seller' && hasActiveShop && (
                 <Link href="/seller/dashboard" onClick={() => setIsOpen(false)} className="text-blue-600 hover:underline py-1">
-                  ບໍລິຫານຮ້ານຂອງຂ້ອຍ
+                  {t('manage_shop')}
                 </Link>
               )}
               {role === 'admin' && (
@@ -170,7 +181,7 @@ export default function Navbar() {
                 </Link>
               )}
               <Link href="/orders" onClick={() => setIsOpen(false)} className="text-gray-600 hover:text-blue-600 py-1">
-                ປະຫວັດຄຳສັ່ງ
+                {t('order_history')}
               </Link>
               <button
                 onClick={() => {
@@ -179,19 +190,30 @@ export default function Navbar() {
                 }}
                 className="text-left text-red-600 hover:underline py-1"
               >
-                ອອກຈາກລະບົບ
+                {t('logout')}
               </button>
             </div>
           ) : (
             <div className="flex flex-col space-y-2 pt-1">
               <Link href="/login" onClick={() => setIsOpen(false)} className="text-blue-600 hover:underline py-2 text-center border rounded">
-                ເຂົ້າສູ່ລະບົບ
+                {t('login')}
               </Link>
               <Link href="/register" onClick={() => setIsOpen(false)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center block">
-                ລົງທະບຽນ
+                {t('register')}
               </Link>
             </div>
           )}
+
+          {/* Mobile Language Switcher */}
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-sm text-gray-500">ພາສາ / Language</span>
+            <button
+              onClick={() => setLocale(locale === 'lo' ? 'en' : 'lo')}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-3 py-1 rounded text-xs transition cursor-pointer"
+            >
+              🌐 {locale === 'lo' ? 'English (EN)' : 'ພາສາລາວ (LA)'}
+            </button>
+          </div>
         </div>
       )}
     </nav>
