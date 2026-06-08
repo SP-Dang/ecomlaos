@@ -242,8 +242,8 @@ export default function SellerOrders() {
         <div className="space-y-4">
           {filteredOrders.map((item) => (
             <div key={item.id} className="border rounded p-4">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                <div className="space-y-1 flex-1 min-w-0">
                   <p><strong>ຊື່ຜູ້ຊື້:</strong> {item.orders?.buyer_name}</p>
                   {item.orders?.buyer_phone && (
                     <p><strong>ເບີໂທ:</strong> {item.orders.buyer_phone}</p>
@@ -259,7 +259,7 @@ export default function SellerOrders() {
                   href={`/seller/orders/${item.orders?.id}/label`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-shrink-0 ml-4 flex items-center gap-1 bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700 transition"
+                  className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded text-sm hover:bg-indigo-700 transition font-medium"
                 >
                   🖨️ ພິມປ້າຍ
                 </a>

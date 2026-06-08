@@ -51,44 +51,52 @@ export default function CartPage() {
             );
             const hasDiscount = finalPrice < item.product.price;
             return (
-              <div key={item.id} className="flex gap-4 border rounded p-4">
-                {item.product.images?.[0] && (
-                  <img src={item.product.images[0]} alt={item.product.name_la}
-                    className="w-24 h-24 object-cover rounded flex-shrink-0" />
-                )}
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold">{item.product.name_la}</h2>
-                  {/* Show variant name if exists */}
-                  {item.variant_name && (
-                    <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded mt-1 mb-1">
-                      {item.variant_name}
-                    </span>
+              <div key={item.id} className="flex flex-col sm:flex-row justify-between gap-4 border rounded p-4 bg-white shadow-sm">
+                <div className="flex gap-4 flex-1">
+                  {item.product.images?.[0] && (
+                    <img src={item.product.images[0]} alt={item.product.name_la}
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded flex-shrink-0" />
                   )}
-                  {/* Price display */}
-                  <div className="flex items-center gap-2">
-                    <p className={`${hasDiscount ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
-                      {finalPrice.toLocaleString()} ກີບ
-                    </p>
-                    {hasDiscount && (
-                      <p className="text-gray-400 line-through text-sm">
-                        {item.product.price.toLocaleString()} ກີບ
-                      </p>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base sm:text-lg font-semibold truncate">{item.product.name_la}</h2>
+                    {/* Show variant name if exists */}
+                    {item.variant_name && (
+                      <div className="mt-1">
+                        <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">
+                          {item.variant_name}
+                        </span>
+                      </div>
                     )}
+                    {/* Price display */}
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className={`${hasDiscount ? 'text-red-600 font-bold' : 'text-gray-600'} text-sm sm:text-base`}>
+                        {finalPrice.toLocaleString()} ກີບ
+                      </p>
+                      {hasDiscount && (
+                        <p className="text-gray-400 line-through text-xs sm:text-sm">
+                          {item.product.price.toLocaleString()} ກີບ
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <label>ຈຳນວນ:</label>
+                </div>
+
+                <div className="flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t pt-3 sm:border-t-0 sm:pt-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">ຈຳນວນ:</span>
                     <input
                       type="number"
                       min="1"
                       value={item.quantity}
                       onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                      className="w-20 border rounded px-2 py-1"
+                      className="w-16 border rounded px-2 py-1 text-sm text-center"
                     />
-                    <button onClick={() => removeItem(item.id)} className="text-red-600 hover:underline">ລຶບ</button>
+                    <button onClick={() => removeItem(item.id)} className="text-red-600 hover:underline text-sm ml-2 cursor-pointer">ລຶບ</button>
                   </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold">{(finalPrice * item.quantity).toLocaleString()} ກີບ</p>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400 sm:hidden">ຍອດລວມ:</p>
+                    <p className="font-bold text-base sm:text-lg text-blue-600">{(finalPrice * item.quantity).toLocaleString()} ກີບ</p>
+                  </div>
                 </div>
               </div>
             );

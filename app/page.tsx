@@ -191,23 +191,25 @@ export default function Home() {
           </div>
         )}
 
-        <div className="bg-white p-4 rounded-lg shadow mb-8 flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
+        <div className="bg-white p-4 rounded-lg shadow mb-8 grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-4 items-end">
+          <div className="flex-1 min-w-[200px] w-full">
             <label className="block text-sm font-medium mb-1">ຄົ້ນຫາສິນຄ້າ</label>
             <input type="text" placeholder="ຊື່ສິນຄ້າ..." value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
               className="w-full border rounded px-3 py-2" />
           </div>
-          <div className="w-48">
+          <div className="w-full sm:w-auto md:w-48">
             <label className="block text-sm font-medium mb-1">ປະເພດສິນຄ້າ</label>
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full border rounded px-3 py-2">
               <option value="all">ທັງໝົດ</option>
               {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name_la}</option>)}
             </select>
           </div>
-          <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">ຄົ້ນຫາ</button>
-          <button onClick={clearFilters} className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">ລ້າງ</button>
+          <div className="flex gap-2 w-full sm:w-auto md:w-auto">
+            <button onClick={applyFilters} className="flex-1 sm:flex-initial bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 cursor-pointer text-center">ຄົ້ນຫາ</button>
+            <button onClick={clearFilters} className="flex-1 sm:flex-initial bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 cursor-pointer text-center">ລ້າງ</button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
