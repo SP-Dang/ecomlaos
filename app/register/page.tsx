@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,7 +23,7 @@ export default function RegisterPage() {
   // Send verification code
   const sendVerification = async () => {
     if (!phone || phone.length < 9) {
-      setError('ກະລຸນາປ້ອນເບີໂທລະສັບ 9 ຕົວເລກ (20xxxxxxx)');
+      setError(t('register_error_phone_format'));
       return;
     }
     setLoading(true);
@@ -43,12 +45,12 @@ export default function RegisterPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        alert(`ລະຫັດຢັ້ງຢືນ: ${result.code} (6 ໂຕເລກ)`);
+        alert(`${t('verification_code_alert_prefix')}${result.code}${t('verification_code_alert_suffix')}`);
         setCodeSent(true);
         setError('');
       }
     } catch (err) {
-      setError('ບໍ່ສາມາດສົ່ງລະຫັດໄດ້, ກະລຸນາລອງໃໝ່');
+      setError(t('register_error_verification_failed'));
     } finally {
       setLoading(false);
     }
@@ -58,9 +60,9 @@ export default function RegisterPage() {
     if (verificationCode.length === 6) {
       setIsVerified(true);
       setError('');
-      alert('ຢັ້ງຢືນເບີໂທສຳເລັດ');
+      alert(t('register_phone_verified_alert'));
     } else {
-      setError('ລະຫັດຢັ້ງຢືນຕ້ອງມີ 6 ຕົວເລກ');
+      setError(t('register_error_code_digits'));
     }
   };
 
@@ -69,15 +71,15 @@ export default function RegisterPage() {
     setError('');
 
     if (!isVerified) {
-      setError('ກະລຸນາຢັ້ງຢືນເບີໂທກ່ອນ');
+      setError(t('register_error_verify_first'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('ລະຫັດຜ່ານບໍ່ກົງກັນ');
+      setError(t('register_error_password_mismatch'));
       return;
     }
     if (password.length < 6) {
-      setError('ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 6 ຕົວ');
+      setError(t('register_error_password_length'));
       return;
     }
 
@@ -104,7 +106,7 @@ export default function RegisterPage() {
 
       if (signUpError) {
         if (signUpError.message.includes('already registered')) {
-          setError('ເບີໂທນີ້ຖືກລົງທະບຽນແລ້ວ, ກະລຸນາເຂົ້າສູ່ລະບົບ');
+          setError(t('register_error_already_registered'));
         } else {
           setError(signUpError.message);
         }
@@ -118,11 +120,11 @@ export default function RegisterPage() {
         localStorage.removeItem('redirectAfterLogin');
         router.push(redirectTo);
       } else {
-        alert('ລົງທະບຽນສຳເລັດ! ກະລຸນາເຂົ້າສູ່ລະບົບ');
+        alert(t('register_success_alert'));
         router.push('/login');
       }
     } catch (err: any) {
-      setError('ເກີດຂໍ້ຜິດພາດ: ' + (err.message || 'ກະລຸນາລອງໃໝ່'));
+      setError(t('login_error_generic'));
     } finally {
       setLoading(false);
     }
@@ -131,26 +133,26 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-lg shadow">
-        <h2 className="text-3xl font-bold text-center">ລົງທະບຽນ</h2>
+        <h2 className="text-3xl font-bold text-center">{t('register_title')}</h2>
         {error && <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>}
         <form onSubmit={handleRegister} className="space-y-4">
 
           {/* Full name */}
           <div>
-            <label className="block text-sm font-medium">ຊື່ເຕັມ</label>
+            <label className="block text-sm font-medium">{t('full_name_label')}</label>
             <input
               type="text"
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="mt-1 w-full px-3 py-2 border rounded-md"
-              placeholder="ຊື່ ແລະ ນາມສະກຸນ"
+              placeholder={t('full_name_placeholder')}
             />
           </div>
 
           {/* Phone number + verification */}
           <div>
-            <label className="block text-sm font-medium">ເບີໂທລະສັບ +856</label>
+            <label className="block text-sm font-medium">{t('phone_label_with_prefix')}</label>
             <div className="flex gap-2 mt-1">
               <span className="bg-gray-100 px-3 py-2 border rounded-l-md text-gray-600">+856</span>
               <input
@@ -171,7 +173,7 @@ export default function RegisterPage() {
                 disabled={loading || phone.length < 9}
                 className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 disabled:opacity-50"
               >
-                ສົ່ງລະຫັດຢັ້ງຢືນ
+                {t('send_verification_code_btn')}
               </button>
             )}
 
@@ -179,7 +181,7 @@ export default function RegisterPage() {
               <div className="mt-2 flex gap-2">
                 <input
                   type="text"
-                  placeholder="ລະຫັດ 6 ຕົວເລກ"
+                  placeholder={t('verification_code_placeholder')}
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="flex-1 px-3 py-1 border rounded"
@@ -189,52 +191,52 @@ export default function RegisterPage() {
                   onClick={verifyCode}
                   className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                 >
-                  ຢັ້ງຢືນ
+                  {t('verify_btn')}
                 </button>
               </div>
             )}
 
             {isVerified && (
-              <p className="text-green-600 text-sm mt-1">✓ ຢັ້ງຢືນເບີໂທແລ້ວ</p>
+              <p className="text-green-600 text-sm mt-1">{t('verified_phone_label')}</p>
             )}
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium">ລະຫັດຜ່ານ</label>
+            <label className="block text-sm font-medium">{t('password_label')}</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full px-3 py-2 border rounded-md"
-              placeholder="ຢ່າງໜ້ອຍ 6 ຕົວ"
+              placeholder={t('password_placeholder')}
             />
           </div>
 
           {/* Confirm password */}
           <div>
-            <label className="block text-sm font-medium">ຢືນຢັນລະຫັດຜ່ານ</label>
+            <label className="block text-sm font-medium">{t('confirm_password_label')}</label>
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="mt-1 w-full px-3 py-2 border rounded-md"
-              placeholder="ປ້ອນລະຫັດຜ່ານອີກຄັ້ງ"
+              placeholder={t('confirm_password_placeholder')}
             />
           </div>
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-medium">ທີ່ຢູ່ (ບ້ານ, ເມືອງ, ແຂວງ)</label>
+            <label className="block text-sm font-medium">{t('address_label_full')}</label>
             <textarea
               required
               rows={3}
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="mt-1 w-full px-3 py-2 border rounded-md"
-              placeholder="ບ້ານທົ່ງຂັນຄຳ, ເມືອງຈັນທະບູລີ, ນະຄອນຫຼວງວຽງຈັນ"
+              placeholder={t('address_placeholder_register')}
             />
           </div>
 
@@ -243,14 +245,14 @@ export default function RegisterPage() {
             disabled={loading || !isVerified}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
-            {loading ? 'ກຳລັງລົງທະບຽນ...' : 'ລົງທະບຽນ'}
+            {loading ? t('registering_btn') : t('register_btn')}
           </button>
         </form>
 
         <p className="text-center text-sm">
-          ມີບັນຊີຢູ່ແລ້ວ?{' '}
+          {t('already_has_account')}{' '}
           <Link href="/login" className="text-blue-600 hover:underline">
-            ເຂົ້າສູ່ລະບົບ
+            {t('login_btn')}
           </Link>
         </p>
       </div>

@@ -4,8 +4,10 @@ import { useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
 
 function LoginForm() {
+  const { t } = useLanguage();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +30,7 @@ function LoginForm() {
       });
 
       if (error) {
-        setError('ເບີໂທ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
+        setError(t('login_error_invalid'));
       } else {
         const redirectTo = searchParams.get('redirectTo') ||
                            localStorage.getItem('redirectAfterLogin') ||
@@ -37,7 +39,7 @@ function LoginForm() {
         router.push(redirectTo);
       }
     } catch (err: any) {
-      setError('ເກີດຂໍ້ຜິດພາດ, ກະລຸນາລອງໃໝ່');
+      setError(t('login_error_generic'));
     } finally {
       setLoading(false);
     }
@@ -46,11 +48,11 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
-        <h2 className="text-3xl font-bold text-center">ເຂົ້າສູ່ລະບົບ</h2>
+        <h2 className="text-3xl font-bold text-center">{t('login_title')}</h2>
         {error && <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium">ເບີໂທລະສັບ</label>
+            <label className="block text-sm font-medium">{t('phone_label')}</label>
             <div className="flex mt-1">
               <span className="bg-gray-100 px-3 py-2 border border-r-0 rounded-l-md text-gray-600">
                 +856
@@ -66,7 +68,7 @@ function LoginForm() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium">ລະຫັດຜ່ານ</label>
+            <label className="block text-sm font-medium">{t('password_label')}</label>
             <input
               type="password"
               required
@@ -80,13 +82,13 @@ function LoginForm() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
-            {loading ? 'ກຳລັງເຂົ້າສູ່ລະບົບ...' : 'ເຂົ້າສູ່ລະບົບ'}
+            {loading ? t('logging_in_btn') : t('login_btn')}
           </button>
         </form>
         <p className="text-center">
-          ຍັງບໍ່ມີບັນຊີ?{' '}
+          {t('no_account_label')}{' '}
           <Link href="/register" className="text-blue-600 hover:underline">
-            ລົງທະບຽນ
+            {t('register_link')}
           </Link>
         </p>
       </div>
@@ -95,8 +97,9 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">ກຳລັງໂຫຼດ...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">{t('loading')}</div>}>
       <LoginForm />
     </Suspense>
   );
