@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     description: "ເວທີຊື້-ຂາຍສິນຄ້າອອນລາຍພາສາລາວ - ຄຸນນະພາບດີ, ລາຄາປະຢັດ",
     siteName: "EcomLao",
   },
+  verification: {
+    google: "bwWxHEQOwcwJAscDfEF5dc1jpNQWudQBco4__tQCO0M",
+  },
 };
 
 export default function RootLayout({
