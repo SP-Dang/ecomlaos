@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "lo_LA",
-    url: "https://ecomlaos.com",
+    url: "https://www.ecomlao.com",
     title: "ຮ້ານຄ້າອອນລາຍ ລາວ | Lao Online Marketplace",
     description: "ເວທີຊື້-ຂາຍສິນຄ້າອອນລາຍພາສາລາວ - ຄຸນນະພາບດີ, ລາຄາປະຢັດ",
     siteName: "EcomLao",

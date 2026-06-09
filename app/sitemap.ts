@@ -6,7 +6,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabaseServer = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://ecomlaos.com';
+  const baseUrl = 'https://www.ecomlao.com';
 
   // Static routes
   const routes: MetadataRoute.Sitemap = [
