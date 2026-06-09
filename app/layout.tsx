@@ -15,8 +15,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ຮ້ານຄ້າອອນລາຍ ລາວ",
-  description: "ເວທີຊື້-ຂາຍສິນຄ້າອອນລາຍພາສາລາວ",
+  title: "ຮ້ານຄ້າອອນລາຍ ລາວ | Lao Online Marketplace",
+  description: "ເວທີຊື້-ຂາຍສິນຄ້າອອນລາຍພາສາລາວ - ຄຸນນະພາບດີ, ລາຄາປະຢັດ",
+  keywords: ["ecommerce", "laos", "online shopping", "ຊື້ເຄື່ອງອອນລາຍ", "ຕະຫຼາດອອນລາຍ", "ຮ້ານຄ້າລາວ"],
+  authors: [{ name: "EcomLao Team" }],
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "lo_LA",
+    url: "https://ecomlaos.com",
+    title: "ຮ້ານຄ້າອອນລາຍ ລາວ | Lao Online Marketplace",
+    description: "ເວທີຊື້-ຂາຍສິນຄ້າອອນລາຍພາສາລາວ - ຄຸນນະພາບດີ, ລາຄາປະຢັດ",
+    siteName: "EcomLao",
+  },
 };
 
 export default function RootLayout({
