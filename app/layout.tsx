@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: "EcomLao",
   },
   verification: {
-    google: "bwWxHEQOwcwJAscDfEF5dc1jpNQWudQBco4__tQCO0M",
+    google: "UfilD6nbqwC1237HKheYc7e2-fJT-ZUmstxVizgrm4E",
   },
 };
 
